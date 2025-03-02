@@ -94,7 +94,7 @@ To enable Claude, follow the instructions [here](https://docs.aws.amazon.com/bed
 1. Clone the Repository
 
 ```bash
-git clone git@ssh.gitlab.aws.dev:ehallvax/threat-designer.git
+git clone https://github.com/awslabs/threat-designer.git
 cd threat-designer
 ```
 
