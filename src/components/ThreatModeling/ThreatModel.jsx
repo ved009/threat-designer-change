@@ -17,12 +17,14 @@ import { Spinner } from "@cloudscape-design/components";
 import DeleteModal from "./DeleteModal";
 import {
   getThreatModelingStatus,
+  getThreatModelingTrail,
   getThreatModelingResults,
   getDownloadUrl,
   updateTm,
   deleteTm,
   startThreatModeling,
 } from "../../services/ThreatDesigner/stats";
+import { useSplitPanel } from "../../SplitPanelContext";
 import "./ThreatModeling.css";
 
 const blobToBase64 = (blob) => {
@@ -67,6 +69,7 @@ export const ThreatModel = ({ user }) => {
   const previousResponse = useRef(null);
   const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
+  const { setTrail } = useSplitPanel();
   const handleReplayThreatModeling = async (iteration, reasoning) => {
     try {
       setIteration(0);
@@ -293,12 +296,25 @@ export const ThreatModel = ({ user }) => {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const results = await deleteTm(response?.job_id);
+      await deleteTm(response?.job_id);
       navigate("/");
     } catch (error) {
       console.error("Error deleting threat modeling:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefresh = async (idValue) => {
+    if (!idValue) {
+      return;
+    }
+
+    try {
+      const statusResponse = await getThreatModelingTrail(idValue);
+      setTrail(statusResponse.data);
+    } catch (error) {
+      console.error("Error fetching threat modeling trail:", error);
     }
   };
 
@@ -430,7 +446,7 @@ export const ThreatModel = ({ user }) => {
             >
               {state.processing && (
                 <div style={{ width: "100%", marginTop: "200px" }}>
-                  <Processing status={tmStatus} iteration={iteration} />
+                  <Processing status={tmStatus} iteration={iteration} id={id} />
                 </div>
               )}
               {state.results && (
@@ -445,6 +461,7 @@ export const ThreatModel = ({ user }) => {
                   threatCatalogData={response?.item?.threat_list?.threats}
                   assets={response?.item?.assets?.assets}
                   updateTM={updateThreatModeling}
+                  refreshTrail={handleRefresh}
                 />
               )}
             </div>

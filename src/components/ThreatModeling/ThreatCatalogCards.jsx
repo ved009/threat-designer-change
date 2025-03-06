@@ -95,13 +95,7 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
 
   const navigate = useNavigate();
 
-  const onBreadcrumbsClick = (e) => {
-    e.preventDefault();
-    navigate(e.detail.href);
-  };
-
   const handleDelete = async (id) => {
-    console.log(id);
     try {
       const results = await deleteTm(id);
       removeItem(id);

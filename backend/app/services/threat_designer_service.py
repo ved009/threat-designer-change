@@ -10,6 +10,7 @@ import os
 STATE = os.environ.get("JOB_STATUS_TABLE")
 FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
 AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
+AGENT_TRAIL_TABLE = os.environ.get("AGENT_TRAIL_TABLE")
 ARCHITECTURE_BUCKET = os.environ.get("ARCHITECTURE_BUCKET")
 REGION = os.environ.get("REGION")
 dynamodb = boto3.resource("dynamodb")
@@ -29,6 +30,7 @@ LOG = Logger(serialize_stacktrace=False)
 tracer = Tracer()
 
 table = dynamodb.Table(STATE)
+trail_table = dynamodb.Table(AGENT_TRAIL_TABLE)
 
 
 def convert_decimals(obj):
@@ -204,7 +206,7 @@ def delete_dynamodb_item(table, key, owner):
 def invoke_lambda(owner, payload):
     s3_location = payload.get("s3_location")
     iteration = payload.get("iteration")
-    reasoning = payload.get("reasoning", False)
+    reasoning = payload.get("reasoning", 0)
     if payload.get("replay", False):
         id = payload.get("id")
     else:
@@ -257,6 +259,33 @@ def check_status(job_id):
         print(e)
         raise InternalError(e)
 
+@tracer.capture_method
+def check_trail(job_id):
+    try:
+        # Attempt to get the item from the DynamoDB table
+        response = trail_table.get_item(Key={"id": job_id})
+
+        # Check if the item exists
+        if "Item" in response:
+            # Assuming there's a 'status' field in your DynamoDB item
+            assets = response["Item"].get("assets", "")
+            flows = response["Item"].get("flows", "")
+            gaps = response["Item"].get("gap", [])
+            threats = response["Item"].get("threats", [])
+            return {
+                "id": job_id,
+                 "assets": assets,
+                  "flows": flows,
+                  "gaps": gaps,
+                  "threats": threats
+                  }
+        else:
+            return {"id": job_id }
+
+    except Exception as e:
+        print(e)
+        raise InternalError(e)
+
 
 @tracer.capture_method
 def fetch_results(job_id):
@@ -277,7 +306,7 @@ def fetch_results(job_id):
             return {"job_id": job_id, "state": "Not Found", "item": None}
 
     except Exception as e:
-        Logger.info(e)
+        Logger.error(e)
         raise InternalError(e)
 
 

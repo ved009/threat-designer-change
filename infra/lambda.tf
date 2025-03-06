@@ -15,8 +15,9 @@ resource "aws_lambda_function" "threat_designer" {
   
   environment {
     variables = {
-      AGENT_STATE_TABLE    = aws_dynamodb_table.threat_designer_state.id,
-      JOB_STATUS_TABLE = aws_dynamodb_table.threat_designer_status.id,
+      AGENT_STATE_TABLE   = aws_dynamodb_table.threat_designer_state.id,
+      JOB_STATUS_TABLE    = aws_dynamodb_table.threat_designer_status.id,
+      AGENT_TRAIL_TABLE   = aws_dynamodb_table.threat_designer_trail.id,
       REGION              = var.region,
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
       MAIN_MODEL          = jsonencode(var.model_main)
@@ -53,6 +54,7 @@ resource "aws_iam_role_policy" "lambda_tm_policy" {
   role = aws_iam_role.threat_designer_role.id
   policy = templatefile("${path.module}/templates/threat_designer_lambda_role_policy.json", {
     state_table_arn = aws_dynamodb_table.threat_designer_state.arn,
+    trail_table_arn = aws_dynamodb_table.threat_designer_trail.arn,
     status_table_arn = aws_dynamodb_table.threat_designer_status.arn,
     architecture_bucket = aws_s3_bucket.architecture_bucket.arn
   })
@@ -82,6 +84,7 @@ resource "aws_lambda_function" "backend" {
       TRUSTED_ORIGINS        = "https://${aws_amplify_branch.develop.branch_name}.${aws_amplify_app.threat-designer.default_domain}, http://localhost:5173"
       THREAT_MODELING_LAMBDA = aws_lambda_function.threat_designer.id,
       AGENT_STATE_TABLE      = aws_dynamodb_table.threat_designer_state.id,
+      AGENT_TRAIL_TABLE      = aws_dynamodb_table.threat_designer_trail.id,
       JOB_STATUS_TABLE       = aws_dynamodb_table.threat_designer_status.id,
       ARCHITECTURE_BUCKET    = aws_s3_bucket.architecture_bucket.id
     }
@@ -117,7 +120,8 @@ resource "aws_iam_role_policy" "lambda_threat_designer_api_policy" {
     state_table_arn = aws_dynamodb_table.threat_designer_state.arn,
     status_table_arn = aws_dynamodb_table.threat_designer_status.arn,
     architecture_bucket = aws_s3_bucket.architecture_bucket.arn,
-    threat_modeling_lambda = aws_lambda_function.threat_designer.arn
+    threat_modeling_lambda = aws_lambda_function.threat_designer.arn,
+    trail_table_arn = aws_dynamodb_table.threat_designer_trail.arn
   })
 }
 

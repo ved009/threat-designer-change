@@ -157,6 +157,7 @@ const SpinnerContainer = styled.div`
   animation: rotate 2s linear infinite;
   width: 64px;
   height: 64px;
+  cursor: ${(props) => (props.clickable ? "pointer" : "default")};
 `;
 
 const Text = styled.div`
@@ -164,10 +165,10 @@ const Text = styled.div`
   text-align: center;
 `;
 
-export const LoadingSpinner = ({ color = "#006ce0" }) => {
+export const LoadingSpinner = ({ color = "#006ce0", clickable }) => {
   return (
     <Container>
-      <SpinnerContainer>
+      <SpinnerContainer clickable={clickable}>
         <svg
           width="64px"
           height="64px"
@@ -272,49 +273,56 @@ export const Stepper = ({ steps, currentStep = 0, onViewportChange }) => {
   return (
     <div className="stepper-container" style={{ width: isTablet ? "100%" : undefined }}>
       <div className="stepper-row">
-        {steps.map((step, index) => (
-          <div className="step-column" key={index}>
-            <div
-              className={`step-icon ${index <= currentStep ? "active" : ""}`}
-              style={
-                currentStep === index
-                  ? {
-                      backgroundColor: "white",
-                      color: "#006ce0",
-                    }
-                  : {
-                      background:
-                        index > currentStep
-                          ? "#b4b4bb"
-                          : "radial-gradient(circle farthest-corner at top left,rgba(0, 150, 250, 1) -25%,rgba(0, 150, 250, 0) 55%),radial-gradient(circle farthest-corner at top right, rgba(216, 178, 255, 1) -10%, rgba(115, 0, 229, 1) 50%)",
-                      color: "white",
-                    }
-              }
-            >
-              {currentStep === index ? (
-                <LoadingSpinner color={"#006ce0"} />
-              ) : (
-                React.cloneElement(step.icon, {
-                  color: index < currentStep ? "#f9f9fa" : "#656871",
-                })
+        {steps.map((step, index) => {
+          const isClickable =
+            step.title.includes("Threats") ||
+            step.title.includes("Assets") ||
+            step.title.includes("Data flows");
+
+          return (
+            <div className="step-column" key={index}>
+              <div
+                className={`step-icon ${index <= currentStep ? "active" : ""}`}
+                style={
+                  currentStep === index
+                    ? {
+                        backgroundColor: "white",
+                        color: "#006ce0",
+                      }
+                    : {
+                        background:
+                          index > currentStep
+                            ? "#b4b4bb"
+                            : "radial-gradient(circle farthest-corner at top left,rgba(0, 150, 250, 1) -25%,rgba(0, 150, 250, 0) 55%),radial-gradient(circle farthest-corner at top right, rgba(216, 178, 255, 1) -10%, rgba(115, 0, 229, 1) 50%)",
+                        color: "white",
+                      }
+                }
+              >
+                {currentStep === index ? (
+                  <LoadingSpinner color={"#006ce0"} clickable={false} />
+                ) : (
+                  React.cloneElement(step.icon, {
+                    color: index < currentStep ? "#f9f9fa" : "#656871",
+                  })
+                )}
+              </div>
+              {!isTablet && (
+                <div className="step-text">
+                  <div className="step-title">{step.title}</div>
+                  <div className="step-subtitle">{step.subtitle}</div>
+                </div>
+              )}
+              {index !== steps.length - 1 && (
+                <div
+                  className="step-connector"
+                  style={{
+                    background: index >= currentStep ? "#b4b4bb" : "rgba(115, 0, 229, 1)",
+                  }}
+                />
               )}
             </div>
-            {!isTablet && (
-              <div className="step-text">
-                <div className="step-title">{step.title}</div>
-                <div className="step-subtitle">{step.subtitle}</div>
-              </div>
-            )}
-            {index !== steps.length - 1 && (
-              <div
-                className="step-connector"
-                style={{
-                  background: index >= currentStep ? "#b4b4bb" : "rgba(115, 0, 229, 1)",
-                }}
-              />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

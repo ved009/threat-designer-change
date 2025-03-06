@@ -95,8 +95,7 @@ export const createThreatModelingPDF = async (
             Array.isArray(row[col]) ? row[col].map((item) => `• ${item}`).join("\n") : row[col]
           )
         ),
-        margin: { left: 14 }, // Aligns with the section title
-        margin: { top: 10 },
+        margin: { left: 14, top: 10 }, // Aligns with the section title
       });
 
       yPos = doc.lastAutoTable.finalY + 15;

@@ -10,6 +10,7 @@ from services.threat_designer_service import (
     generate_presigned_download_url,
     delete_tm,
     fetch_all,
+    check_trail
 )
 
 tracer = Tracer()
@@ -22,6 +23,9 @@ LOG = logger = Logger(serialize_stacktrace=False)
 def _tm_status(id):
     return check_status(id)
 
+@router.get("/threat-designer/trail/<id>")
+def _tm_status(id):
+    return check_trail(id)
 
 @router.get("/threat-designer/<id>")
 def _tm_fetch_results(id):

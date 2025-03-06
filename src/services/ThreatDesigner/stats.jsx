@@ -89,6 +89,11 @@ async function getThreatModelingStatus(id) {
   return instance.get(statsPath);
 }
 
+async function getThreatModelingTrail(id) {
+  const statsPath = `/trail/${id}`;
+  return instance.get(statsPath);
+}
+
 async function getThreatModelingResults(id) {
   const statsPath = `/${id}`;
   return instance.get(statsPath);
@@ -108,4 +113,5 @@ export {
   getDownloadUrl,
   deleteTm,
   getThreatModelingAllResults,
+  getThreatModelingTrail,
 };

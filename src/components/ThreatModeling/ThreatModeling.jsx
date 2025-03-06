@@ -13,7 +13,7 @@ import "./ThreatModeling.css";
 
 export default function ThreatModeling({ user }) {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
-  const [reasoning, setReasoning] = useState(false);
+  const [reasoning, setReasoning] = useState("0");
   const { alert, showAlert, hideAlert, alertMessages } = useAlert();
   const [base64Content, setBase64Content] = useState([]);
   const [id, setId] = useState(null);

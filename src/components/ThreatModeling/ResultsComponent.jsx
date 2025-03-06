@@ -8,7 +8,9 @@ import { ModalComponent } from "./ModalForm";
 import { Button } from "@cloudscape-design/components";
 import Textarea from "@cloudscape-design/components/textarea";
 import ButtonGroup from "@cloudscape-design/components/button-group";
-
+import IconWithButton from "../HelpPanel/HelpPanelContent";
+import { useSplitPanel } from "../../SplitPanelContext";
+import { useParams } from "react-router";
 const arrayToObjects = (key, stringArray) => {
   return stringArray.map((value) => ({ [key]: value }));
 };
@@ -24,8 +26,11 @@ export default function ThreatModelingOutput({
   threatCatalogData,
   assets,
   updateTM,
+  refreshTrail,
 }) {
   const [openModal, setOpenModal] = useState(false);
+  const { handleHelpButtonClick } = useSplitPanel();
+  const { id = null } = useParams();
   const handleModal = () => {
     setOpenModal(true);
   };
@@ -35,6 +40,10 @@ export default function ThreatModelingOutput({
   useEffect(() => {
     setValue(description);
   }, []);
+
+  useEffect(() => {
+    refreshTrail(id);
+  }, [id]);
 
   return (
     <div style={{ maxWidth: "100%", height: "auto", paddingLeft: 0 }}>
@@ -125,7 +134,7 @@ export default function ThreatModelingOutput({
         <ThreatTableComponent
           headers={["Flow_description", "Source_entity", "Target_entity"]}
           data={dataFlowData}
-          title="Data Flow"
+          title="Flows"
           type={"data_flows"}
           updateData={updateTM}
         />
@@ -146,7 +155,13 @@ export default function ThreatModelingOutput({
         <div style={{ height: "25px" }}></div>
         <SpaceBetween size="m">
           <SpaceBetween direction="horizontal" size="xs">
-            <Header counter={`(${threatCatalogData.length})`} variant="h2">
+            <Header
+              counter={`(${threatCatalogData.length})`}
+              variant="h2"
+              info={
+                <IconWithButton handleHelpButtonClick={handleHelpButtonClick} context={"Threats"} />
+              }
+            >
               Threat Catalog
             </Header>
             <Button variant="link" onClick={handleModal}>
