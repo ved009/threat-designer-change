@@ -266,7 +266,7 @@ human_structure = HumanMessage(
     )
 
 def _retry(model, response, struct):
-    reasoning = response[0]['reasoning_content']['text']
+    reasoning = response.content[0].get('reasoning_content', {}).get('text', None)
     struct_message = [structure_prompt(reasoning), human_structure]
     model_with_tools = model.with_structured_output(struct)
     return model_with_tools.invoke(struct_message)
