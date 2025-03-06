@@ -9,6 +9,41 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Function to check if .deployment.config exists and load variables
+check_existing_config() {
+    if [ -f ".deployment.config" ]; then
+        echo -e "${BLUE}Found existing deployment configuration.${NC}"
+        source .deployment.config
+        
+        # Check if required variables exist in the config
+        if [[ -n "$APP_ID" && -n "$USERNAME" && -n "$EMAIL" && -n "$REGION" ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Function to display existing configuration and ask if user wants to use it
+use_existing_config() {
+    echo -e "\n${GREEN}Existing deployment configuration:${NC}"
+    echo -e "Username: ${BLUE}${USERNAME:-N/A}${NC}"
+    echo -e "Given Name: ${BLUE}${GIVEN_NAME:-N/A}${NC}"
+    echo -e "Family Name: ${BLUE}${FAMILY_NAME:-N/A}${NC}"
+    echo -e "Email: ${BLUE}${EMAIL:-N/A}${NC}"
+    echo -e "Region: ${BLUE}${REGION:-N/A}${NC}"
+    echo -e "App ID: ${BLUE}${APP_ID:-N/A}${NC}"
+    
+    while true; do
+        echo -e "\n${BLUE}Would you like to use this existing configuration? (y/n)${NC}"
+        read -r use_existing
+        case $use_existing in
+            [Yy]* ) return 0;;
+            [Nn]* ) return 1;;
+            * ) echo -e "${RED}Please answer y or n${NC}";;
+        esac
+    done
+}
+
 # Function to get user input with validation
 get_input() {
     local prompt="$1"
@@ -83,53 +118,69 @@ confirm_inputs() {
 clear
 echo -e "${GREEN}Welcome to the Deployment Wizard!${NC}"
 echo -e "This wizard will guide you through the deployment process.\n"
-# Main wizard loop
-while true; do
-    # Get deployment type first
-    get_deployment_type
-    
-    # Get AWS region
-    get_region
-    
-    # Only gather user details if deploying backend or both
-    if [ "$DEPLOY_TYPE" != "frontend" ]; then
-        # Get user inputs
-        get_input "Enter username:" USERNAME
-        # Email validation
-        while true; do
-            get_input "Enter email:" EMAIL
-            if [[ $EMAIL =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
-                break
-            else
-                echo -e "${RED}Invalid email format. Please try again.${NC}"
-            fi
-        done
-        get_input "Enter given name:" GIVEN_NAME
-        get_input "Enter family name:" FAMILY_NAME
+
+# Check for existing configuration
+USE_EXISTING=false
+if check_existing_config; then
+    if use_existing_config; then
+        USE_EXISTING=true
+    else
+        echo -e "\n${BLUE}Starting fresh configuration...${NC}"
     fi
-    
-    # Modify confirm_inputs function to show different information based on deployment type
-    echo -e "\n${GREEN}Please confirm your inputs:${NC}"
-    echo -e "Deployment Type: ${BLUE}$DEPLOY_TYPE${NC}"
-    echo -e "Region: ${BLUE}$REGION${NC}"
-    if [ "$DEPLOY_TYPE" != "frontend" ]; then
-        echo -e "Username: ${BLUE}$USERNAME${NC}"
-        echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
-        echo -e "Family Name: ${BLUE}$FAMILY_NAME${NC}"
-        echo -e "Email: ${BLUE}$EMAIL${NC}"
-    fi
-    
+fi
+
+# Main wizard loop if not using existing config
+if [ "$USE_EXISTING" = false ]; then
     while true; do
-        echo -e "\n${BLUE}Is this correct? (y/n)${NC}"
-        read -r confirm
-        case $confirm in
-            [Yy]* ) break 2;; # Break out of both loops
-            [Nn]* ) break;;   # Break out of just the confirmation loop
-            * ) echo -e "${RED}Please answer y or n${NC}";;
-        esac
+        # Get deployment type first
+        get_deployment_type
+        
+        # Get AWS region
+        get_region
+        
+        # Only gather user details if deploying backend or both
+        if [ "$DEPLOY_TYPE" != "frontend" ]; then
+            # Get user inputs
+            get_input "Enter username:" USERNAME
+            # Email validation
+            while true; do
+                get_input "Enter email:" EMAIL
+                if [[ $EMAIL =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; then
+                    break
+                else
+                    echo -e "${RED}Invalid email format. Please try again.${NC}"
+                fi
+            done
+            get_input "Enter given name:" GIVEN_NAME
+            get_input "Enter family name:" FAMILY_NAME
+        fi
+        
+        # Modify confirm_inputs function to show different information based on deployment type
+        echo -e "\n${GREEN}Please confirm your inputs:${NC}"
+        echo -e "Deployment Type: ${BLUE}$DEPLOY_TYPE${NC}"
+        echo -e "Region: ${BLUE}$REGION${NC}"
+        if [ "$DEPLOY_TYPE" != "frontend" ]; then
+            echo -e "Username: ${BLUE}$USERNAME${NC}"
+            echo -e "Given Name: ${BLUE}$GIVEN_NAME${NC}"
+            echo -e "Family Name: ${BLUE}$FAMILY_NAME${NC}"
+            echo -e "Email: ${BLUE}$EMAIL${NC}"
+        fi
+        
+        while true; do
+            echo -e "\n${BLUE}Is this correct? (y/n)${NC}"
+            read -r confirm
+            case $confirm in
+                [Yy]* ) break 2;; # Break out of both loops
+                [Nn]* ) break;;   # Break out of just the confirmation loop
+                * ) echo -e "${RED}Please answer y or n${NC}";;
+            esac
+        done
+        echo -e "\n${BLUE}Let's start over...${NC}\n"
     done
-    echo -e "\n${BLUE}Let's start over...${NC}\n"
-done
+else
+    # If using existing config, still need to set deployment type
+    get_deployment_type
+fi
 
 ZIP_FILE="build.zip"
 BRANCH="dev"

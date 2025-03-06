@@ -2,6 +2,8 @@ import { Table, Box, Header } from "@cloudscape-design/components";
 import React from "react";
 import ButtonDropdown from "@cloudscape-design/components/button-dropdown";
 import { ModalComponent } from "./ModalForm";
+import IconWithButton from "../HelpPanel/HelpPanelContent";
+import { useSplitPanel } from "../../SplitPanelContext";
 
 export const ThreatTableComponent = ({
   headers,
@@ -16,6 +18,7 @@ export const ThreatTableComponent = ({
   const [selectedIndex, setSelectedIndex] = React.useState(-1);
   const [selectedItems, setSelectedItems] = React.useState([]);
   const [action, setAction] = React.useState(null);
+  const { handleHelpButtonClick } = useSplitPanel();
   const arrayToBullets = (value) => {
     if (Array.isArray(value)) {
       return value.map((item) => `• ${item}`).join("\n");
@@ -72,6 +75,11 @@ export const ThreatTableComponent = ({
         }
         header={
           <Header
+            info={
+              title === "Assets" || title === "Flows" ? (
+                <IconWithButton handleHelpButtonClick={handleHelpButtonClick} context={title} />
+              ) : null
+            }
             actions={
               <ButtonDropdown
                 onItemClick={(itemClickDetails) => {

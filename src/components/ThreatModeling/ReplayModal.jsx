@@ -1,19 +1,14 @@
 import React, { useState } from "react";
 import Modal from "@cloudscape-design/components/modal";
-import {
-  Button,
-  SpaceBetween,
-  FormField,
-  Select,
-  Box,
-  Toggle,
-} from "@cloudscape-design/components";
+import { Button, SpaceBetween, FormField, Select, Box } from "@cloudscape-design/components";
 import Alert from "@cloudscape-design/components/alert";
+import { I18nProvider } from "@cloudscape-design/components/i18n";
+import Slider from "@cloudscape-design/components/slider";
 
 export const ReplayModalComponent = ({ handleReplay, visible, setVisible }) => {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
-  const [reasoning, setReasoning] = useState(false);
-  const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true"
+  const [reasoning, setReasoning] = useState("0");
+  const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
 
   return (
     <Modal
@@ -61,9 +56,30 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible }) => {
               onChange={({ detail }) => setIteration(detail.selectedOption)}
             />
           </FormField>
-          <Toggle onChange={({ detail }) => setReasoning(detail.checked)} checked={reasoning} disabled={!isReasoningEnabled}>
-            Reasoning boost
-          </Toggle>
+          <FormField
+            label="Reasoning boost"
+            description="Controls the amount of time the model spends thinking before responding."
+          >
+            <Slider
+              i18nStrings={I18nProvider}
+              disabled={!isReasoningEnabled}
+              onChange={({ detail }) => setReasoning(detail.value)}
+              value={reasoning}
+              valueFormatter={(value) =>
+                [
+                  { value: "0", label: "None" },
+                  { value: "1", label: "Low" },
+                  { value: "2", label: "Medium" },
+                  { value: "3", label: "High" },
+                ].find((item) => item.value === value.toString())?.label || ""
+              }
+              ariaDescription="From None to High"
+              max={3}
+              min={0}
+              referenceValues={[1, 2]}
+              step={1}
+            />
+          </FormField>
         </SpaceBetween>
       </SpaceBetween>
     </Modal>

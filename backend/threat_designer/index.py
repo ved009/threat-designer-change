@@ -67,14 +67,14 @@ def _handle_new_state(state, event):
 
 
 def lambda_handler(event, context):
-    model_main, model_gap, model_struct = initialize_models(event.get("reasoning", False))
-
+    model_main, model_struct = initialize_models(event.get("reasoning", 0))
+    reasoning =  event.get("reasoning", "0")
+    thinking = True if reasoning != 0 else False
     config = {"configurable": {
         "model_main": model_main,
-        "model_gap": model_gap,
         "model_struct": model_struct,
         "start_time": datetime.now(),
-        "reasoning": event.get("reasoning", False),
+        "reasoning": thinking,
     }}
 
     try:

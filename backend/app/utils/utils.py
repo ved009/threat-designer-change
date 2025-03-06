@@ -78,8 +78,6 @@ def validate_user(router: Router):
             )
             email = router.current_event.request_context.authorizer.get("email", "")
 
-            logger.info(f"Owner from body: {owner}")
-            logger.info(f"Authenticated user: {user_id}")
 
             if user_id == owner:
                 return func(*args, **kwargs)

@@ -5,6 +5,7 @@ import LoginPageInternal from "./pages/Landingpage/Landingpage";
 import { Spinner } from "@cloudscape-design/components";
 import { getUser } from "./services/Auth/auth";
 import { SpaceBetween } from "@cloudscape-design/components";
+import { SplitPanelProvider } from "./SplitPanelContext";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -38,10 +39,10 @@ const App = () => {
           </div>
         </SpaceBetween>
       ) : authUser ? (
-        <>
+        <SplitPanelProvider>
           <TopNavigationMFE user={authUser} setAuthUser={checkAuthState} />
           <AppLayoutMFE user={authUser} />
-        </>
+        </SplitPanelProvider>
       ) : (
         <LoginPageInternal setAuthUser={checkAuthState} />
       )}

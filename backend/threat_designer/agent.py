@@ -4,7 +4,7 @@ from langchain_core.messages.human import HumanMessage
 from langgraph.graph import StateGraph, END
 from langgraph.graph import StateGraph
 import os
-from utils import update_job_state, create_dynamodb_item
+from utils import update_job_state, create_dynamodb_item, handle_asset_error, update_trail
 import logging
 import time
 from state import AssetsList, ContinueThreatModeling, FlowsList, ThreatsList, AgentState
@@ -12,6 +12,7 @@ from prompts import asset_prompt, flow_prompt, gap_prompt, threats_improve_promp
 from typing_extensions import TypedDict
 from typing import Any
 from datetime import datetime
+
 
 
 logger = logging.getLogger()
@@ -51,6 +52,7 @@ def list_to_string(str_list):
 def define_assets(state, config):
     model_structured = config["configurable"].get("model_struct")
     model = config["configurable"].get("model_main")
+    reasoning = config["configurable"].get("reasoning", False)
     update_job_state(state["job_id"], "ASSETS")
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [AssetsList]
@@ -64,26 +66,30 @@ def define_assets(state, config):
             {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
         ]
     )
+    struct_message = [asset_prompt(), human_message]
 
-    if config["configurable"].get("reasoning", True):
-        messages = [asset_prompt(), human_message]
-        analysis = model.invoke(messages)
-        content = analysis.content[1] if isinstance(analysis.content, list) else analysis.content
-        struct_message = [structure_prompt(content), human_structure]
+    if reasoning:
+        model_with_tools = model.bind_tools(tools)
     else:
-        struct_message = [asset_prompt(), human_message]
-
-    model_with_tools = model_structured.bind_tools(tools, tool_choice="any")
+        model_with_tools = model.bind_tools(tools, tool_choice="any")
     response = model_with_tools.invoke(struct_message)
-    response = AssetsList(**response.tool_calls[0]['args'])
+    if reasoning:
+        update_trail(job_id=state["job_id"], assets=response.content[0].get('reasoning_content', {}).get('text', None))
+    @handle_asset_error(model_structured, AssetsList, thinking=config["configurable"].get("reasoning", True))
+    def process_assets(response):
+        return AssetsList(**response.tool_calls[0]['args'])
 
+    response = process_assets(response)
     return {
-        "assets": response
-    }
+            "assets": response
+        }
+    
+
 
 def define_flows(state, config):
     model_structured = config["configurable"].get("model_struct")
     model = config["configurable"].get("model_main")
+    reasoning = config["configurable"].get("reasoning", False)
     update_job_state(state["job_id"], "FLOW")
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [FlowsList]
@@ -97,26 +103,30 @@ def define_flows(state, config):
             {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
         ]
     )
+    struct_message = [flow_prompt(state["assets"]), human_message]
 
-    if config["configurable"].get("reasoning", True):
-        messages = [flow_prompt(state["assets"]), human_message]
-        analysis = model.invoke(messages)
-        content = analysis.content[1] if isinstance(analysis.content, list) else analysis.content
-        struct_message = [structure_prompt(content), human_structure]
+    if reasoning:
+        model_with_tools = model.bind_tools(tools)
     else:
-        struct_message = [flow_prompt(state["assets"]), human_message]
-
-    model_with_tools = model_structured.bind_tools(tools, tool_choice="any")
+        model_with_tools = model.bind_tools(tools, tool_choice="any")
+    
     response = model_with_tools.invoke(struct_message)
-    response = FlowsList(**response.tool_calls[0]['args'])
-
+    if reasoning:
+        update_trail(job_id=state["job_id"], flows=response.content[0].get('reasoning_content', {}).get('text', None))
+    @handle_asset_error(model_structured, FlowsList, thinking=config["configurable"].get("reasoning", True))
+    def process_flows(response):
+        return FlowsList(**response.tool_calls[0]['args'])
+    response = process_flows(response)
     return {
-        "system_architecture": response
-    }
+            "system_architecture": response
+        }
+    
 
-def continue_tm(state, config):
+def continue_tm(state, config, flush):
     assumptions = list_to_string(state.get("assumptions", []))  
-    model = config["configurable"].get("model_gap")
+    model = config["configurable"].get("model_main")
+    model_structured = config["configurable"].get("model_struct")
+    reasoning = config["configurable"].get("reasoning", False)
     tools = [ContinueThreatModeling]
 
     human_message = HumanMessage(
@@ -131,17 +141,27 @@ def continue_tm(state, config):
     )
 
     messages = [gap_prompt(state.get("prev_gap", ""), state["assets"], state["system_architecture"]), human_message]
-    model_with_tools = model.bind_tools(tools, tool_choice="any")
+    if reasoning:
+        model_with_tools = model.bind_tools(tools)
+    else:
+        model_with_tools = model.bind_tools(tools, tool_choice="any")
     response = model_with_tools.invoke(messages)
-    response = ContinueThreatModeling(**response.tool_calls[0]['args'])
+    if reasoning:
+        update_trail(job_id=state["job_id"], gaps=response.content[0].get('reasoning_content', {}).get('text', None), flush=flush)
+    @handle_asset_error(model_structured, ContinueThreatModeling, thinking=config["configurable"].get("reasoning", True))
+    def process_gaps(response):
+        return ContinueThreatModeling(**response.tool_calls[0]['args'])
+    response = process_gaps(response)
     return {
-        "stop": response.stop,
-        "gap": response.gap
-    }
+            "stop": response.stop,
+            "gap": response.gap
+        }
 
 def define_threats(state, config):
     model_structured = config["configurable"].get("model_struct")
     model = config["configurable"].get("model_main")
+    reasoning = config["configurable"].get("reasoning", False)
+    replay = state.get("replay", False)
     retry_count = int(state.get("retry", 0))
     retry_count += 1
     if retry_count > MAX_RETRY:
@@ -152,7 +172,10 @@ def define_threats(state, config):
     
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [ThreatsList]
-    model_with_tools = model_structured.bind_tools(tools, tool_choice="any")
+    if reasoning:
+        model_with_tools = model.bind_tools(tools)
+    else:
+        model_with_tools = model.bind_tools(tools, tool_choice="any")
 
     def get_threats_response(model_with_tools, gap=""):
         human_message = HumanMessage(
@@ -176,36 +199,36 @@ def define_threats(state, config):
             {state.get("prev_gap", "")} \n\n
             {gap}
             """
-
-        if config["configurable"].get("reasoning", True):
-            messages = [system_prompt, human_message]
-            analysis = model.invoke(messages)
-            content = analysis.content[1] if isinstance(analysis.content, list) else analysis.content
-            struct_message = [structure_prompt(content), human_structure]
-        else:
-            struct_message = [system_prompt, human_message]
+        struct_message = [system_prompt, human_message]
 
         response = model_with_tools.invoke(struct_message)
-        threats = ThreatsList(**response.tool_calls[0]['args'])
+        if reasoning:
+            flush = int(state.get("retry", 0))
+            update_trail(job_id=state["job_id"], threats=response.content[0].get('reasoning_content', {}).get('text', None), flush=flush)
+        @handle_asset_error(model_structured, ThreatsList, thinking=config["configurable"].get("reasoning", True))
+        def process_threats(response):
+            return ThreatsList(**response.tool_calls[0]['args'])
+        response = process_threats(response)
+
         return {
-            "threat_list": threats,
-            "retry": retry_count,
-            "prev_gap": new_gaps
-        }
+                "threat_list": response,
+                "retry": retry_count,
+                "prev_gap": new_gaps,
+            }
 
     # Handle first iteration retry case
     if iteration == 0 and retry_count > 1:
-        continue_state = continue_tm(state, config)
+        flush = 0 if int(state.get("retry", 0)) == 1 else 1
+        continue_state = continue_tm(state, config, flush)
         if continue_state.get("stop", False):
             return {"stop": True}
         return get_threats_response(model_with_tools, continue_state.get("gap", ""))
-    
     if iteration == 0:
         iteration += 1
 
     # Handle normal retry flow
     if retry_count <= iteration:
-        return get_threats_response(model_with_tools)
+        return get_threats_response(model_with_tools, replay)
     return {"stop": True}
 
 
@@ -221,6 +244,7 @@ workflow.add_edge("flows", "threats_assistant")
 
 def route_replay(state):
     if state.get("replay", False):
+        update_trail(job_id=state["job_id"], threats=[], gaps=[], flush=0)
         try:
             return "replay"
         except Exception as e:

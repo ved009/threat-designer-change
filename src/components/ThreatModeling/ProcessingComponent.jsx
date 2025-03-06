@@ -7,7 +7,7 @@ import thinking from "./images/thinking.svg";
 import complete from "./images/complete.svg";
 import { Assets, Flows, Threats, Thinking, Complete, Stepper } from "./CustomIcons";
 
-export default function Processing({ status, iteration }) {
+export default function Processing({ status, iteration, id }) {
   const [viewport, setViewport] = useState({
     isMobile: false,
     isTablet: false,
@@ -112,7 +112,12 @@ export default function Processing({ status, iteration }) {
           width: "100%",
         }}
       >
-        <Stepper steps={steps} currentStep={currentStep} onViewportChange={handleViewportChange} />
+        <Stepper
+          steps={steps}
+          currentStep={currentStep}
+          onViewportChange={handleViewportChange}
+          id={id}
+        />
       </div>
     </>
   );

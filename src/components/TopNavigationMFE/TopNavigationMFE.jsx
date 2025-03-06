@@ -14,10 +14,7 @@ function TopNavigationMFE({ user, setAuthUser }) {
     overflowMenuTriggerText: "More",
   };
 
-  const profileActions = [
-    { id: "signout", text: "Sign out" },
-  ];
-
+  const profileActions = [{ id: "signout", text: "Sign out" }];
 
   return (
     <div

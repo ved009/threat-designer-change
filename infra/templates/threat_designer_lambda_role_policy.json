@@ -11,32 +11,20 @@
         "dynamodb:Query",
         "dynamodb:Scan"
       ],
-      "Resource": ["${state_table_arn}", "${status_table_arn}"]
+      "Resource": ["${state_table_arn}", "${status_table_arn}", "${trail_table_arn}"]
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:ListBucket",
-        "s3:PutObject",
-        "s3:DeleteObject"
-      ],
+      "Action": ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"],
       "Resource": ["${architecture_bucket}", "${architecture_bucket}/*"]
     },
     {
       "Effect": "Allow",
-      "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ],
+      "Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"],
       "Resource": "arn:aws:logs:*:*:*"
     },
     {
-      "Action": [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream"
-      ],
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
       "Effect": "Allow",
       "Resource": "*"
     },

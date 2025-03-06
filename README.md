@@ -5,14 +5,17 @@
 # Threat Designer: AI-powered threat modeling for secure system design
 
 ### Architecture diagram
+
 ![solutions_diagram](/assets/threat_designer_arch.png)
 
 ### Agent logic
+
 <p align="center">
   <img src="assets/agent_logic.png" alt="Threat Designer Logo" width="300"/>
 </p>
 
 ### Description
+
 Threat Designer is an AI-driven agent designed to automate and streamline the threat modeling process for secure system design.
 
 Harnessing the power of large language models (LLMs), it analyzes system architectures, identifies potential security threats, and generates detailed threat models. By automating this complex and time-intensive task, Threat Designer empowers developers and security professionals to seamlessly incorporate security considerations from the earliest stages of development, enhancing both efficiency and system resilience.

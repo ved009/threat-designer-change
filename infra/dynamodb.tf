@@ -37,3 +37,17 @@ resource "aws_dynamodb_table" "threat_designer_status" {
     type = "S"
   }
 }
+
+resource "aws_dynamodb_table" "threat_designer_trail" {
+  #checkov:skip=CKV_AWS_119
+  #checkov:skip=CKV_AWS_28
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "id"
+  name                        = "${local.prefix}-trail"
+  deletion_protection_enabled = var.deletion_protection_enabled
+
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
