@@ -8,7 +8,6 @@ import { ModalComponent } from "./ModalForm";
 import { Button } from "@cloudscape-design/components";
 import Textarea from "@cloudscape-design/components/textarea";
 import ButtonGroup from "@cloudscape-design/components/button-group";
-import IconWithButton from "../HelpPanel/HelpPanelContent";
 import { useSplitPanel } from "../../SplitPanelContext";
 import { useParams } from "react-router";
 const arrayToObjects = (key, stringArray) => {
@@ -29,7 +28,6 @@ export default function ThreatModelingOutput({
   refreshTrail,
 }) {
   const [openModal, setOpenModal] = useState(false);
-  const { handleHelpButtonClick } = useSplitPanel();
   const { id = null } = useParams();
   const handleModal = () => {
     setOpenModal(true);
@@ -158,9 +156,6 @@ export default function ThreatModelingOutput({
             <Header
               counter={`(${threatCatalogData.length})`}
               variant="h2"
-              info={
-                <IconWithButton handleHelpButtonClick={handleHelpButtonClick} context={"Threats"} />
-              }
             >
               Threat Catalog
             </Header>

@@ -3,14 +3,17 @@ import { Tabs } from "@cloudscape-design/components";
 import AssetsInfoTabs from "./IndividualContent/AssetsInfoTabs";
 import FlowsInfoTab from "./IndividualContent/FlowsInfoTab";
 import ThreatsInfoTabs from "./IndividualContent/ThreatsInfoTabs";
+import ThreatModelingTabs from "./IndividualContent/CombinedTabs";
 
 export function InfoContent({ context }) {
   let tabs;
 
   switch (context) {
+    case "All":
+      tabs = ThreatModelingTabs;
+      break;
     case "Assets":
       tabs = AssetsInfoTabs;
-      break;
     case "Flows":
       tabs = FlowsInfoTab;
       break;

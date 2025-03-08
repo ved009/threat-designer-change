@@ -21,7 +21,7 @@ function AppLayoutMFE({ user }) {
     setSplitPanelOpen(false);
   }, [location.pathname, setSplitPanelOpen]); // Dependency on location.pathname
 
-  const renderSplitPanelContent = () => {
+  const RenderSplitPanelContent = () => {
     if (splitPanelContext?.content) {
       return splitPanelContext.content;
     } else {
@@ -34,7 +34,6 @@ function AppLayoutMFE({ user }) {
       {user && (
         <AppLayout
           disableContentPaddings={false}
-          splitPanelSize={500}
           splitPanelOpen={splitPanelOpen}
           splitPanelPreferences={{ position: "side" }}
           onSplitPanelToggle={(event) => setSplitPanelOpen(event.detail.open)}
@@ -44,7 +43,7 @@ function AppLayoutMFE({ user }) {
               closeBehavior={"hide"}
               header={splitPanelContext?.context || "Details"}
             >
-              {<renderSplitPanelContent />}
+              {<RenderSplitPanelContent />}
             </SplitPanel>
           }
           content={<Main user={user} />}
