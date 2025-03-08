@@ -5,7 +5,7 @@ import Alert from "@cloudscape-design/components/alert";
 import { I18nProvider } from "@cloudscape-design/components/i18n";
 import Slider from "@cloudscape-design/components/slider";
 
-export const ReplayModalComponent = ({ handleReplay, visible, setVisible }) => {
+export const ReplayModalComponent = ({ handleReplay, visible, setVisible, setSplitPanelOpen }) => {
   const [iteration, setIteration] = useState({ label: "Auto", value: 0 });
   const [reasoning, setReasoning] = useState("0");
   const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
@@ -20,6 +20,7 @@ export const ReplayModalComponent = ({ handleReplay, visible, setVisible }) => {
           <SpaceBetween direction="horizontal" size="xs">
             <Button
               onClick={() => {
+                setSplitPanelOpen(false);
                 handleReplay(iteration?.value, reasoning);
               }}
               variant="link"

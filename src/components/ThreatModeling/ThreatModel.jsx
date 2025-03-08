@@ -14,6 +14,7 @@ import createThreatModelingDocument from "./ResultsDocx";
 import { createThreatModelingPDF } from "./ResutlPdf";
 import { ReplayModalComponent } from "./ReplayModal";
 import { Spinner } from "@cloudscape-design/components";
+import { InfoContent } from "../HelpPanel/InfoContent";
 import DeleteModal from "./DeleteModal";
 import {
   getThreatModelingStatus,
@@ -69,7 +70,7 @@ export const ThreatModel = ({ user }) => {
   const previousResponse = useRef(null);
   const navigate = useNavigate();
   const [deleteModalVisible, setDeleteModal] = useState(false);
-  const { setTrail } = useSplitPanel();
+  const { setTrail, handleHelpButtonClick, setSplitPanelOpen } = useSplitPanel();
   const handleReplayThreatModeling = async (iteration, reasoning) => {
     try {
       setIteration(0);
@@ -345,11 +346,7 @@ export const ThreatModel = ({ user }) => {
     }
   };
 
-  useEffect(() => {
-    if (response) {
-      checkChanges();
-    }
-  }, [response]);
+
 
   return (
     <>
@@ -386,16 +383,19 @@ export const ThreatModel = ({ user }) => {
                     }
                     if (itemClickDetails.detail.id === "rm") {
                       setDeleteModal(true);
-                      // handleDelete();
                     }
                     if (itemClickDetails.detail.id === "re") {
                       setVisible(true);
+                    }
+                    if (itemClickDetails.detail.id === "tr") {
+                      handleHelpButtonClick(<InfoContent context={"All"} />)
                     }
                   }}
                   items={[
                     { text: "Save", id: "sv", disabled: false },
                     { text: "Delete", id: "rm", disabled: false },
                     { text: "Replay", id: "re", disabled: false },
+                    { text: "Trail", id: "tr", disabled: false },
                   ]}
                 >
                   Actions
@@ -471,6 +471,7 @@ export const ThreatModel = ({ user }) => {
           handleReplay={handleReplayThreatModeling}
           visible={visible}
           setVisible={setVisible}
+          setSplitPanelOpen={setSplitPanelOpen}
         />
       </SpaceBetween>
       <DeleteModal
