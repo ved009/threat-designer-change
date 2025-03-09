@@ -4,8 +4,9 @@ import "@cloudscape-design/global-styles/index.css";
 import { TopNavigation, Button } from "@cloudscape-design/components";
 import { logOut } from "../../services/Auth/auth";
 import Shield from "../../components/ThreatModeling/images/shield.png";
+import { Moon, Sun } from "../ThreatModeling/CustomIcons";
 
-function TopNavigationMFE({ user, setAuthUser }) {
+function TopNavigationMFE({ user, setAuthUser, colorMode, toggleColorMode }) {
   const navigate = useNavigate();
   const navBarRef = useRef(null);
   const i18nStrings = {
@@ -15,6 +16,9 @@ function TopNavigationMFE({ user, setAuthUser }) {
   };
 
   const profileActions = [{ id: "signout", text: "Sign out" }];
+  const getIcon = () => {
+    return colorMode === "dark" ? <Sun /> : <Moon />;
+  };
 
   return (
     <div
@@ -86,6 +90,17 @@ function TopNavigationMFE({ user, setAuthUser }) {
             ),
           }}
           utilities={[
+            {
+              type: "button",
+              iconSvg: getIcon(),
+              ariaLabel: "Layout",
+              iconAlt: "Layout",
+              title: "Layout",
+              disableUtilityCollapse: false,
+              onClick: () => {
+                toggleColorMode();
+              },
+            },
             {
               type: "menu-dropdown",
               id: "user-menu-dropdown",

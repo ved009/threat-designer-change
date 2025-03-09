@@ -5,6 +5,7 @@ import uuid
 from exceptions.exceptions import InternalError
 from botocore.exceptions import ClientError
 from exceptions.exceptions import UnauthorizedError
+from utils.utils import create_dynamodb_item
 import os
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
@@ -232,12 +233,22 @@ def invoke_lambda(owner, payload):
                 }
             ),
         )
+        agent_state = {
+            "job_id": id,
+            "s3_location": s3_location,
+            "owner": owner,
+            "title": title,
+            "retry": reasoning,
+        }
+        if not payload.get("replay", False):
+            create_dynamodb_item(agent_state, AGENT_TABLE)
         item = {"id": id, "state": "START", "owner": owner}
         table.put_item(Item=item)
         return {"id": id}
     except Exception as e:
-        LOG.error(e)
+        LOG.error(e)        
         raise InternalError(e)
+        
 
 
 @tracer.capture_method
