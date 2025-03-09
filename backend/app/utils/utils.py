@@ -6,7 +6,8 @@ from exceptions.exceptions import UnauthorizedError
 from enum import Enum
 from json import JSONEncoder
 import json
-from datetime import datetime, date
+from datetime import datetime, date, timezone
+import boto3
 
 tracer = Tracer()
 logger = Logger()
@@ -90,3 +91,30 @@ def validate_user(router: Router):
         return wrapper
 
     return decorator
+
+
+def create_dynamodb_item(agent_state, table_name):
+    # Initialize DynamoDB client
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+
+    # Get current UTC timestamp
+    current_utc = datetime.now(timezone.utc).isoformat()
+
+    # Convert Pydantic model to dict, handling nested Pydantic objects and existing dicts
+    item = {
+        "job_id": agent_state["job_id"],
+        "s3_location": agent_state["s3_location"],
+        "title": agent_state.get("title", None),
+        "owner": agent_state.get("owner", None),
+        "retry": agent_state.get("retry", None),
+        "timestamp": current_utc,
+    }
+
+    try:
+        # Create a new item in DynamoDB
+        response = table.put_item(Item=item)
+        logger.info("Item created successfully:", response)
+    except Exception as e:
+        logger.error("Error creating item:", e.response["Error"]["Message"])
+        raise

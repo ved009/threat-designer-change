@@ -3,6 +3,7 @@ import Wizard from "@cloudscape-design/components/wizard";
 import StartComponent from "./StartComponent";
 import {
   Header,
+  Form,
   FormField,
   Input,
   SpaceBetween,
@@ -37,7 +38,6 @@ export const SubmissionComponent = ({
   const isReasoningEnabled = import.meta.env.VITE_REASONING_ENABLED === "true";
   const [activeStepIndex, setActiveStepIndex] = React.useState(0);
   const [value, setValue] = React.useState([]);
-  const [slide, setSlide] = React.useState(0);
   const [title, setTitle] = React.useState("");
   const [newAssumption, setNewAssumption] = React.useState("");
   const [assumptions, setAssumptions] = React.useState([]);
@@ -46,22 +46,12 @@ export const SubmissionComponent = ({
   const handleAddAssumption = () => {
     if (newAssumption.trim()) {
       setAssumptions((prev) => [...prev, newAssumption.trim()]);
-      setNewAssumption(""); // Clear input after adding
+      setNewAssumption("");
     }
   };
 
   const handleRemoveAssumption = (index) => {
     setAssumptions((prev) => prev.filter((_, i) => i !== index));
-  };
-  const handleButtonClick = () => {
-    onStartThreatModeling(base64);
-  };
-
-  const handleNext = () => {
-    const isValid = validate(activeStepIndex + 1);
-    if (isValid) {
-      setActiveStepIndex((prevIndex) => prevIndex + 1);
-    }
   };
 
   return (

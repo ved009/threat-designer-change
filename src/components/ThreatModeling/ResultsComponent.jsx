@@ -8,7 +8,6 @@ import { ModalComponent } from "./ModalForm";
 import { Button } from "@cloudscape-design/components";
 import Textarea from "@cloudscape-design/components/textarea";
 import ButtonGroup from "@cloudscape-design/components/button-group";
-import { useSplitPanel } from "../../SplitPanelContext";
 import { useParams } from "react-router";
 const arrayToObjects = (key, stringArray) => {
   return stringArray.map((value) => ({ [key]: value }));

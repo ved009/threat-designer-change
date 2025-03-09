@@ -261,6 +261,7 @@ export const ThreatModel = ({ user }) => {
           }));
           setTmStatus(null);
           setLoading(false);
+          showAlert("ErrorThreatModeling");
         } else if (currentStatus === "FINALIZE") {
           setTmStatus(currentStatus);
           setLoading(false);
@@ -346,13 +347,18 @@ export const ThreatModel = ({ user }) => {
     }
   };
 
+  useEffect(() => {
+    if (response) {
+      checkChanges();
+    }
+  }, [response]);
 
 
   return (
     <>
       <SpaceBetween size="s">
         <BreadcrumbGroup items={breadcrumbs} ariaLabel="Breadcrumbs" onClick={onBreadcrumbsClick} />
-        {alert.visible && (
+        {alert.visible && alert.state !== "ErrorThreatModeling" && (
           <Alert
             dismissible
             onDismiss={hideAlert}
@@ -464,6 +470,22 @@ export const ThreatModel = ({ user }) => {
                   refreshTrail={handleRefresh}
                 />
               )}
+              {alert.visible && alert.state === "ErrorThreatModeling" && (
+                <div style={{ width: "80%", marginTop: "200px" }}>
+                <Alert
+                  statusIconAriaLabel={"Error"}
+                  type={"error"}
+                  action={
+                      <Button onClick={() => navigate("/")}>
+                        {alertMessages[alert.state].button}
+                      </Button>
+                  }
+                  header={alertMessages[alert.state].title}
+                >
+                  {alertMessages[alert.state].msg}
+                </Alert>
+                </div>
+                )}
             </div>
           </>
         )}
