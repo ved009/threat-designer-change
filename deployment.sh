@@ -218,30 +218,11 @@ deploy_backend() {
        ! VITE_COGNITO_REGION=$(terraform output -raw region) || \
        ! VITE_USER_POOL_ID=$(terraform output -raw user_pool_id) || \
        ! VITE_APP_CLIENT_ID=$(terraform output -raw app_client_id) || \
+       ! VITE_REASONING_ENABLED=$(terraform output -raw reasoning_enabled) || \
        ! VITE_COGNITO_DOMAIN=$(terraform output -raw cognito_domain); then
         echo -e "${RED}Failed to get one or more required Terraform outputs. Exiting...${NC}"
         exit 1
     fi
-
-    # Read and check variables.tf for reasoning models
-    if [ -f "variables.tf" ]; then
-        # Extract main model ID
-        MAIN_MODEL=$(grep -A 5 'model_main' variables.tf | grep 'id' | grep -o '".*"' | tr -d '"')
-        
-        # Extract reasoning models list
-        REASONING_MODELS=$(grep -A 5 'reasoning_models' variables.tf | grep -o '".*"' | tr -d '"')
-        
-        # Check if main model exists in reasoning models
-        if echo "$REASONING_MODELS" | grep -q "$MAIN_MODEL"; then
-            VITE_REASONING_ENABLED="true"
-        else
-            VITE_REASONING_ENABLED="false"
-        fi
-    else
-        echo -e "${RED}Warning: variables.tf not found. Setting reasoning to false by default.${NC}"
-        VITE_REASONING_ENABLED="false"
-    fi
-
     VITE_REDIRECT_SIGN_IN="https://dev.${APP_ID}.amplifyapp.com"
     VITE_REDIRECT_SIGN_OUT="https://dev.${APP_ID}.amplifyapp.com"
     export AWS_DEFAULT_REGION=$REGION

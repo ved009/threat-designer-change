@@ -39,3 +39,15 @@ output "temporary_password" {
   value     = random_password.temp.result
   sensitive = true
 }
+
+output "main_model_id" {
+  value = var.model_main.id
+}
+
+output "reasoning_models" {
+  value = var.reasoning_models
+}
+
+output "reasoning_enabled" {
+  value = contains(var.reasoning_models, var.model_main.id) ? "true" : "false"
+}
