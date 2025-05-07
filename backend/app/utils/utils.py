@@ -1,13 +1,12 @@
-from aws_lambda_powertools import Tracer, Logger
 import json
-from datetime import datetime
-from aws_lambda_powertools.event_handler.api_gateway import Router
-from exceptions.exceptions import UnauthorizedError
+from datetime import date, datetime, timezone
 from enum import Enum
 from json import JSONEncoder
-import json
-from datetime import datetime, date, timezone
+
 import boto3
+from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools.event_handler.api_gateway import Router
+from exceptions.exceptions import UnauthorizedError
 
 tracer = Tracer()
 logger = Logger()
@@ -78,7 +77,6 @@ def validate_user(router: Router):
                 "username", ""
             )
             email = router.current_event.request_context.authorizer.get("email", "")
-
 
             if user_id == owner:
                 return func(*args, **kwargs)

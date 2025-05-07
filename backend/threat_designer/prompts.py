@@ -1,4 +1,17 @@
-def asset_prompt():
+"""
+Threat Modeling Prompt Generation Module
+
+This module provides a collection of functions for generating prompts used in security threat modeling analysis.
+Each function generates specialized prompts for different phases of the threat modeling process, including:
+- Asset identification
+- Data flow analysis
+- Gap analysis
+- Threat identification and improvement
+- Response structuring
+"""
+
+
+def asset_prompt() -> str:
     return """You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
     on a given architecture. Specifically your role is to carefully review the architecture and identify key assets and Entities.
     <task>
@@ -17,7 +30,7 @@ Assumptions Establish the baseline security context and boundaries that help ide
     """
 
 
-def flow_prompt(assets_state):
+def flow_prompt(assets_state) -> str:
     return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
     on a given architecture. Specifically your role is to carefully review the architecture and Understand the System Architecture, Data Flows, and Trust Boundaries. leverage as well the information provided by your peer
     in <identified_assets_and_entities>. \n
@@ -55,7 +68,7 @@ Analyze the system architecture, focusing on how data flows between components a
     """
 
 
-def gap_prompt(prev_gap, assets, system_architecture):
+def gap_prompt(gap, assets, system_architecture) -> str:
     return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modeling
     on a given architecture. Specifically your role is to validate whether the threat catalog provided in <threats> is comprehensive enough or no. The supporting information is available in: <identified_assets_and_entities> and <data_flow>.
     Think very carefully and analyze the architecture, <identified_assets_and_entities>, <data_flow> and <threats>. 
@@ -63,7 +76,7 @@ def gap_prompt(prev_gap, assets, system_architecture):
     Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
     This is an iterative process and is possible that you have already provided a gap analysis. If the gap analysis is present in <gap>, consider it when assessing the <threats> \n
     <gap>
-    {prev_gap}
+    {gap}
     </gap>
     <identified_assets_and_entities>
     {assets}
@@ -74,7 +87,7 @@ def gap_prompt(prev_gap, assets, system_architecture):
     """
 
 
-def threats_improve_prompt(gap, threat_list, assets, flows):
+def threats_improve_prompt(gap, threat_list, assets, flows) -> str:
     return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modeling
         on a given architecture. Specifically your role is to enrich the threat catalog by including new threats that may have been missed by your colleague. \n
         If a gap analysis is provided in <gap> leverage that information to improve the threat catalog \n
@@ -137,7 +150,7 @@ def threats_improve_prompt(gap, threat_list, assets, flows):
         """
 
 
-def threats_prompt(assets, flows):
+def threats_prompt(assets, flows) -> str:
     return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
         on a given architecture. Specifically your role is to generate the threats by analyzing the architecture in details and leveraging the information provided by your peers in:
     <identified_assets_and_entities> and <data_flow>. \n
@@ -198,7 +211,8 @@ def threats_prompt(assets, flows):
         </output_format> \n
         """
 
-def structure_prompt(data):
+
+def structure_prompt(data) -> str:
     return f"""You are an helpful assistant whose goal is to to convert the response from your colleague
      to the desired structured output. The response is provided within <response> \n
      <response>

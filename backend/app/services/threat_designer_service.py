@@ -1,12 +1,14 @@
-from aws_lambda_powertools import Logger, Tracer
-import boto3
+import decimal
 import json
-import uuid
-from exceptions.exceptions import InternalError
-from botocore.exceptions import ClientError
-from exceptions.exceptions import UnauthorizedError
-from utils.utils import create_dynamodb_item
 import os
+import uuid
+
+import boto3
+from aws_lambda_powertools import Logger, Tracer
+from botocore.config import Config
+from botocore.exceptions import ClientError
+from exceptions.exceptions import InternalError, UnauthorizedError
+from utils.utils import create_dynamodb_item
 
 STATE = os.environ.get("JOB_STATUS_TABLE")
 FUNCTION = os.environ.get("THREAT_MODELING_LAMBDA")
@@ -17,8 +19,6 @@ REGION = os.environ.get("REGION")
 dynamodb = boto3.resource("dynamodb")
 lambda_client = boto3.client("lambda")
 s3_client = boto3.client("s3")
-import decimal
-from botocore.config import Config
 
 
 s3_pre = boto3.client(
@@ -246,9 +246,8 @@ def invoke_lambda(owner, payload):
         table.put_item(Item=item)
         return {"id": id}
     except Exception as e:
-        LOG.error(e)        
+        LOG.error(e)
         raise InternalError(e)
-        
 
 
 @tracer.capture_method
@@ -270,6 +269,7 @@ def check_status(job_id):
         print(e)
         raise InternalError(e)
 
+
 @tracer.capture_method
 def check_trail(job_id):
     try:
@@ -285,13 +285,13 @@ def check_trail(job_id):
             threats = response["Item"].get("threats", [])
             return {
                 "id": job_id,
-                 "assets": assets,
-                  "flows": flows,
-                  "gaps": gaps,
-                  "threats": threats
-                  }
+                "assets": assets,
+                "flows": flows,
+                "gaps": gaps,
+                "threats": threats,
+            }
         else:
-            return {"id": job_id }
+            return {"id": job_id}
 
     except Exception as e:
         print(e)
@@ -355,7 +355,7 @@ def delete_tm(job_id, owner):
         object_key = fetch_results(job_id).get("item").get("s3_location")
         if not object_key:
             LOG.info(f"Object key not found for job_id: {job_id}")
-            raise InternalError(e)
+            raise InternalError()
         delete_dynamodb_item(table, key, owner)
         delete_s3_object(object_key)
         return {"job_id": job_id, "state": "Deleted"}

@@ -1,19 +1,26 @@
-from langchain_core.messages.human import HumanMessage
+"""
+Threat Designer Agent module that handles architecture analysis and threat modeling workflows.
+This module defines the state graph and node functions for the threat modeling process.
+"""
 
-
-from langgraph.graph import StateGraph, END
-from langgraph.graph import StateGraph
-import os
-from utils import update_job_state, create_dynamodb_item, handle_asset_error, update_trail
 import logging
+import os
 import time
-from state import AssetsList, ContinueThreatModeling, FlowsList, ThreatsList, AgentState
-from prompts import asset_prompt, flow_prompt, gap_prompt, threats_improve_prompt, threats_prompt, structure_prompt
-from typing_extensions import TypedDict
-from typing import Any
+import traceback
 from datetime import datetime
+from typing import Any, Dict
 
-
+from langchain_core.messages.human import HumanMessage
+from langchain_core.runnables.config import RunnableConfig
+from langgraph.graph import END, StateGraph
+from langgraph.types import Command
+from prompts import (asset_prompt, flow_prompt, gap_prompt,
+                     threats_improve_prompt, threats_prompt)
+from state import (AgentState, AssetsList, ContinueThreatModeling, FlowsList,
+                   ThreatsList)
+from typing_extensions import TypedDict
+from utils import (create_dynamodb_item, handle_asset_error, update_job_state,
+                   update_trail)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -23,7 +30,18 @@ AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
 MODEL = os.environ.get("MODEL")
 MAX_RETRY = 15
 
+
 class ConfigSchema(TypedDict):
+    """Configuration schema for the workflow.
+
+    Attributes:
+        model_main: Main model configuration
+        model_gap: Gap analysis model configuration
+        model_struct: Structured output model configuration
+        start_time: Workflow start time
+        reasoning: Flag to enable reasoning
+    """
+
     model_main: Any
     model_gap: Any
     model_struct: Any
@@ -32,217 +50,427 @@ class ConfigSchema(TypedDict):
 
 
 human_structure = HumanMessage(
-        content=[
-            {"type": "text", "text": "Convert the <response> into a structured output"},
-        ]
-    )
+    content=[
+        {"type": "text", "text": "Convert the <response> into a structured output"},
+    ]
+)
 
 
-def image_to_base64(state: AgentState):
-    return {
-        "image_data": state["image_data"]
-    }
+def image_to_base64(state: AgentState) -> Dict[str, str]:
+    """Convert image data from state to base64 format.
+
+    Args:
+        state: Current agent state containing image data
+
+    Returns:
+        Dictionary containing base64 encoded image data
+    """
+    return {"image_data": state["image_data"]}
+
 
 def list_to_string(str_list):
+    """Convert a list of strings to a single string.
+
+    Args:
+        str_list: List of strings to join
+
+    Returns:
+        Single string with elements joined by newlines, or space if list is empty
+    """
     if not str_list:
         return " "
     return "\n".join(str_list)
 
 
-def define_assets(state, config):
-    model_structured = config["configurable"].get("model_struct")
-    model = config["configurable"].get("model_main")
-    reasoning = config["configurable"].get("reasoning", False)
+def prepare_message_content(image_data, description, assumptions):
+    """Helper function to prepare message content.
+
+    Args:
+        image_data: Base64 encoded image data
+        description: Description text
+        assumptions: Assumptions text
+
+    Returns:
+        List of content items for message
+    """
+    return [
+        {"type": "text", "text": "Analyze the following architecture:"},
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image_data}"},
+        },
+        {"type": "text", "text": f"<description>{description}</description>"},
+        {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"},
+    ]
+
+
+def define_assets(state: AgentState, config: RunnableConfig):
+    """Define assets from the architecture image and description.
+
+    Args:
+        state: Current agent state
+        config: Configuration for the runnable
+
+    Returns:
+        Dictionary containing processed assets
+    """
+    # Extract configuration values with defaults
+    configurable = config.get("configurable", {})
+    model_structured = configurable.get("model_struct")
+    model = configurable.get("model_main")
+    reasoning = configurable.get("reasoning", False)
+
+    # Update job state
     update_job_state(state["job_id"], "ASSETS")
+
+    # Prepare data for prompt
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [AssetsList]
-    
-    human_message = HumanMessage(
-        content=[
-            {"type": "text", "text": "Analyze the following architecture:"},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{state['image_data']}"}},
-            {"type": "text", "text": f"<description>{state.get('description', '')}</description>"},
-            {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
-        ]
+
+    # Construct message with image and text components
+    content = prepare_message_content(
+        state["image_data"], state.get("description", ""), assumptions
     )
+    human_message = HumanMessage(content=content)
     struct_message = [asset_prompt(), human_message]
 
-    if reasoning:
-        model_with_tools = model.bind_tools(tools)
-    else:
-        model_with_tools = model.bind_tools(tools, tool_choice="any")
+    # Configure model based on reasoning requirement
+    model_with_tools = model.bind_tools(
+        tools, tool_choice="any" if not reasoning else None
+    )
+
+    # Process response
     response = model_with_tools.invoke(struct_message)
-    if reasoning:
-        update_trail(job_id=state["job_id"], assets=response.content[0].get('reasoning_content', {}).get('text', None))
-    @handle_asset_error(model_structured, AssetsList, thinking=config["configurable"].get("reasoning", True))
+
+    # Update trail if reasoning is enabled
+    if reasoning and response.content and len(response.content) > 0:
+        reasoning_text = response.content[0].get("reasoning_content", {}).get("text")
+        if reasoning_text:
+            update_trail(job_id=state["job_id"], assets=reasoning_text)
+
+    # Process assets with error handling
+    @handle_asset_error(
+        model_structured, AssetsList, thinking=configurable.get("reasoning", True)
+    )
     def process_assets(response):
-        return AssetsList(**response.tool_calls[0]['args'])
+        return AssetsList(**response.tool_calls[0]["args"])
 
-    response = process_assets(response)
-    return {
-            "assets": response
-        }
-    
+    processed_assets = process_assets(response)
+    return {"assets": processed_assets}
 
 
-def define_flows(state, config):
-    model_structured = config["configurable"].get("model_struct")
-    model = config["configurable"].get("model_main")
-    reasoning = config["configurable"].get("reasoning", False)
+def define_flows(state: AgentState, config: RunnableConfig):
+    """Define data flows between assets in the architecture.
+
+    Args:
+        state: Current agent state
+        config: Configuration for the runnable
+
+    Returns:
+        Dictionary containing processed system architecture flows
+    """
+    # Extract configuration values with defaults
+    configurable = config.get("configurable", {})
+    model_structured = configurable.get("model_struct")
+    model = configurable.get("model_main")
+    reasoning = configurable.get("reasoning", False)
+
+    # Log and update job state
     update_job_state(state["job_id"], "FLOW")
+
+    # Prepare data for prompt
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [FlowsList]
 
-    human_message = HumanMessage(
-        content=[
-            {"type": "text", "text": "This is the architecture and related information:"},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{state['image_data']}"}},
-            {"type": "text", "text": f"<description>{state.get('description', '')}</description>"},
-            {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
-        ]
-    )
+    # Construct message with image and text components
+    content = [
+        {"type": "text", "text": "This is the architecture and related information:"},
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{state['image_data']}"},
+        },
+        {
+            "type": "text",
+            "text": f"<description>{state.get('description', '')}</description>",
+        },
+        {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"},
+    ]
+    human_message = HumanMessage(content=content)
     struct_message = [flow_prompt(state["assets"]), human_message]
 
-    if reasoning:
-        model_with_tools = model.bind_tools(tools)
-    else:
-        model_with_tools = model.bind_tools(tools, tool_choice="any")
-    
-    response = model_with_tools.invoke(struct_message)
-    if reasoning:
-        update_trail(job_id=state["job_id"], flows=response.content[0].get('reasoning_content', {}).get('text', None))
-    @handle_asset_error(model_structured, FlowsList, thinking=config["configurable"].get("reasoning", True))
-    def process_flows(response):
-        return FlowsList(**response.tool_calls[0]['args'])
-    response = process_flows(response)
-    return {
-            "system_architecture": response
-        }
-    
+    # Configure model based on reasoning requirement
+    model_with_tools = model.bind_tools(
+        tools, tool_choice="any" if not reasoning else None
+    )
 
-def continue_tm(state, config, flush):
-    assumptions = list_to_string(state.get("assumptions", []))  
+    # Process response
+    response = model_with_tools.invoke(struct_message)
+
+    # Update trail if reasoning is enabled
+    if reasoning and response.content and len(response.content) > 0:
+        reasoning_text = response.content[0].get("reasoning_content", {}).get("text")
+        if reasoning_text:
+            update_trail(job_id=state["job_id"], flows=reasoning_text)
+
+    # Process flows with error handling
+    @handle_asset_error(
+        model_structured, FlowsList, thinking=configurable.get("reasoning", True)
+    )
+    def process_flows(response):
+        return FlowsList(**response.tool_calls[0]["args"])
+
+    processed_flows = process_flows(response)
+    return {"system_architecture": processed_flows}
+
+
+def create_gap_message(state, assumptions):
+    """Create message content for gap analysis.
+
+    Args:
+        state: Current agent state
+        assumptions: Formatted assumptions text
+
+    Returns:
+        HumanMessage with appropriate content
+    """
+    content = [
+        {"type": "text", "text": "There are gaps in the <threats> ??\n"},
+        {
+            "type": "text",
+            "text": f"<threats>{state.get('threat_list', '')}</threats>\n",
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{state['image_data']}"},
+        },
+        {
+            "type": "text",
+            "text": f"<solution_description>{state.get('description', '')}</solution_description>",
+        },
+        {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"},
+    ]
+    return HumanMessage(content=content)
+
+
+def gap_analysis(state: AgentState, config: RunnableConfig):
+    """Analyze gaps in the threat model.
+
+    Args:
+        state: Current agent state
+        config: Configuration for the runnable
+
+    Returns:
+        Command to either continue threat modeling or finalize
+    """
+    assumptions = list_to_string(state.get("assumptions", []))
     model = config["configurable"].get("model_main")
     model_structured = config["configurable"].get("model_struct")
     reasoning = config["configurable"].get("reasoning", False)
     tools = [ContinueThreatModeling]
+    flush = 0 if int(state.get("retry", 1)) == 1 else 1
 
-    human_message = HumanMessage(
-        content=[
-            {"type": "text", "text": "There are gaps in the <threats> ??\n"},
-            {"type": "text", "text": f"<threats>{state.get('threat_list', '')}</threats>\n"},
-            {"type": "image_url", "image_url": {
-                "url": f"data:image/jpeg;base64,{state['image_data']}"}},
-            {"type": "text", "text": f"<solution_description>{state.get('description', '')}</solution_description>"},
-            {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
-        ]
+    human_message = create_gap_message(state, assumptions)
+    messages = [
+        gap_prompt(state.get("gap", []), state["assets"], state["system_architecture"]),
+        human_message,
+    ]
+
+    model_with_tools = model.bind_tools(
+        tools, tool_choice="any" if not reasoning else None
     )
 
-    messages = [gap_prompt(state.get("prev_gap", ""), state["assets"], state["system_architecture"]), human_message]
-    if reasoning:
-        model_with_tools = model.bind_tools(tools)
-    else:
-        model_with_tools = model.bind_tools(tools, tool_choice="any")
-    response = model_with_tools.invoke(messages)
-    if reasoning:
-        update_trail(job_id=state["job_id"], gaps=response.content[0].get('reasoning_content', {}).get('text', None), flush=flush)
-    @handle_asset_error(model_structured, ContinueThreatModeling, thinking=config["configurable"].get("reasoning", True))
-    def process_gaps(response):
-        return ContinueThreatModeling(**response.tool_calls[0]['args'])
-    response = process_gaps(response)
-    return {
-            "stop": response.stop,
-            "gap": response.gap
-        }
+    try:
+        response = model_with_tools.invoke(messages)
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        logger.error("Error in defining threats: %s\n%s", e, stack_trace)
+        raise
 
-def define_threats(state, config):
+    if reasoning:
+        reasoning_text = (
+            response.content[0].get("reasoning_content", {}).get("text", None)
+        )
+        update_trail(job_id=state["job_id"], gaps=reasoning_text, flush=flush)
+
+    @handle_asset_error(
+        model_structured,
+        ContinueThreatModeling,
+        thinking=config["configurable"].get("reasoning", True),
+    )
+    def process_gaps(response):
+        return ContinueThreatModeling(**response.tool_calls[0]["args"])
+
+    try:
+        response = process_gaps(response)
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        logger.error("Error in defining threats: %s\n%s", e, stack_trace)
+        raise
+
+    if response.stop:
+        return Command(goto="finalize")
+
+    return Command(goto="threats", update={"gap": [response.gap]})
+
+
+def check_continuation(retry_count, iteration, start_time, current_time):
+    """Check if threat modeling should continue or finalize.
+
+    Args:
+        retry_count: Current retry count
+        iteration: Current iteration
+        start_time: Start time of the process
+        current_time: Current time
+
+    Returns:
+        Boolean indicating if process should finalize
+    """
+    max_retries_reached = retry_count > MAX_RETRY
+    iteration_limit_reached = (retry_count > iteration) and (iteration != 0)
+    time_limit_reached = (current_time - start_time).total_seconds() >= 12 * 60
+
+    return max_retries_reached or iteration_limit_reached or time_limit_reached
+
+
+def create_threat_message(state, assumptions):
+    """Create message content for threat definition.
+
+    Args:
+        state: Current agent state
+        assumptions: Formatted assumptions text
+
+    Returns:
+        HumanMessage with appropriate content
+    """
+    content = [
+        {
+            "type": "text",
+            "text": "Define threats and mitigations for the following solution:",
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{state['image_data']}"},
+        },
+        {
+            "type": "text",
+            "text": f"<solution_description>{state.get('description', '')}</solution_description>",
+        },
+        {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"},
+    ]
+    return HumanMessage(content=content)
+
+
+def define_threats(state: AgentState, config: RunnableConfig):
+    """Define threats and mitigations for the architecture.
+
+    Args:
+        state: Current agent state
+        config: Configuration for the runnable
+
+    Returns:
+        Command to continue threat analysis or finalize
+    """
     model_structured = config["configurable"].get("model_struct")
     model = config["configurable"].get("model_main")
     reasoning = config["configurable"].get("reasoning", False)
-    replay = state.get("replay", False)
-    retry_count = int(state.get("retry", 0))
-    retry_count += 1
-    if retry_count > MAX_RETRY:
-        return {"stop": True}
-    iteration = int(state.get('iteration', 0))
-    if ((retry_count > iteration) and (iteration != 0)):
-        return {"stop": True}
-    
+    retry_count = int(state.get("retry", 1))
+    iteration = int(state.get("iteration", 0))
     assumptions = list_to_string(state.get("assumptions", []))
     tools = [ThreatsList]
-    if reasoning:
-        model_with_tools = model.bind_tools(tools)
-    else:
-        model_with_tools = model.bind_tools(tools, tool_choice="any")
+    gap = state.get("gap", [])
 
-    def get_threats_response(model_with_tools, gap=""):
-        human_message = HumanMessage(
-            content=[
-                {"type": "text", "text": "Define threats and mitigations for the following solution:"},
-                {"type": "image_url", "image_url": {
-                    "url": f"data:image/jpeg;base64,{state['image_data']}"}},
-                {"type": "text", "text": f"<solution_description>{state.get('description', '')}</solution_description>"},
-                {"type": "text", "text": f"<assumptions>{assumptions}</assumptions>"}
-            ]
+    start_time = config["configurable"].get("start_time")
+    current_time = datetime.now()
+
+    if check_continuation(retry_count, iteration, start_time, current_time):
+        return Command(goto="finalize")
+
+    model_with_tools = model.bind_tools(
+        tools, tool_choice="any" if not reasoning else None
+    )
+
+    human_message = create_threat_message(state, assumptions)
+
+    if state.get("retry", 1) > 1:
+        update_job_state(state["job_id"], "THREAT_RETRY", retry_count)
+        system_prompt = threats_improve_prompt(
+            gap, state.get("threat_list"), state["assets"], state["system_architecture"]
+        )
+    else:
+        update_job_state(state["job_id"], "THREAT", retry_count)
+        system_prompt = threats_prompt(state["assets"], state["system_architecture"])
+
+    struct_message = [system_prompt, human_message]
+
+    try:
+        response = model_with_tools.invoke(struct_message)
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        logger.error("Error in defining threats: %s\n%s", e, stack_trace)
+        raise
+
+    if reasoning:
+        flush = 0 if int(state.get("retry", 1)) == 1 else 1
+        reasoning_text = (
+            response.content[0].get("reasoning_content", {}).get("text", None)
+        )
+        update_trail(job_id=state["job_id"], threats=reasoning_text, flush=flush)
+
+    @handle_asset_error(
+        model_structured,
+        ThreatsList,
+        thinking=config["configurable"].get("reasoning", True),
+    )
+    def process_threats(response):
+        return ThreatsList(**response.tool_calls[0]["args"])
+
+    try:
+        response = process_threats(response)
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        logger.error("Error in processing threats: %s\n%s", e, stack_trace)
+        raise
+
+    retry_count += 1
+    if iteration == 0:
+        return Command(
+            goto="gap_analysis", update={"threat_list": response, "retry": retry_count}
         )
 
-        if state.get("retry", 0) != 0:
-            update_job_state(state["job_id"], "THREAT_RETRY", retry_count)
-            system_prompt = threats_improve_prompt(gap, state.get("threat_list"), state["assets"], state["system_architecture"])
-        else:
-            update_job_state(state["job_id"], "THREAT", retry_count)
-            system_prompt = threats_prompt(state["assets"], state["system_architecture"])
-
-        new_gaps = f"""
-            {state.get("prev_gap", "")} \n\n
-            {gap}
-            """
-        struct_message = [system_prompt, human_message]
-
-        response = model_with_tools.invoke(struct_message)
-        if reasoning:
-            flush = int(state.get("retry", 0))
-            update_trail(job_id=state["job_id"], threats=response.content[0].get('reasoning_content', {}).get('text', None), flush=flush)
-        @handle_asset_error(model_structured, ThreatsList, thinking=config["configurable"].get("reasoning", True))
-        def process_threats(response):
-            return ThreatsList(**response.tool_calls[0]['args'])
-        response = process_threats(response)
-
-        return {
-                "threat_list": response,
-                "retry": retry_count,
-                "prev_gap": new_gaps,
-            }
-
-    # Handle first iteration retry case
-    if iteration == 0 and retry_count > 1:
-        flush = 0 if int(state.get("retry", 0)) == 1 else 1
-        continue_state = continue_tm(state, config, flush)
-        if continue_state.get("stop", False):
-            return {"stop": True}
-        return get_threats_response(model_with_tools, continue_state.get("gap", ""))
-    if iteration == 0:
-        iteration += 1
-
-    # Handle normal retry flow
-    if retry_count <= iteration:
-        return get_threats_response(model_with_tools, replay)
-    return {"stop": True}
+    return Command(
+        goto="threats", update={"threat_list": response, "retry": retry_count}
+    )
 
 
-workflow = StateGraph(AgentState, ConfigSchema)
+def finalize(state: AgentState):
+    """Finalize the threat modeling process.
 
-workflow.add_node("asset", define_assets)
-workflow.add_node("image_to_base64", image_to_base64)
-workflow.add_node("flows", define_flows)
-workflow.add_node("threats_assistant", define_threats)
-workflow.set_entry_point("image_to_base64")
-workflow.add_edge("asset", "flows")
-workflow.add_edge("flows", "threats_assistant")
+    Args:
+        state: Current agent state
 
-def route_replay(state):
+    Returns:
+        Command to end workflow
+    """
+    try:
+        update_job_state(state["job_id"], "FINALIZE")
+        create_dynamodb_item(state, AGENT_TABLE)
+        time.sleep(3)
+        update_job_state(state["job_id"], "COMPLETE")
+        return Command(goto=END)
+    except Exception as e:
+        update_job_state(state["job_id"], "FAILED")
+        raise e
+
+
+def route_replay(state: AgentState):
+    """Route workflow based on replay flag.
+
+    Args:
+        state: Current agent state
+
+    Returns:
+        String indicating whether to replay or do full analysis
+    """
     if state.get("replay", False):
         update_trail(job_id=state["job_id"], threats=[], gaps=[], flush=0)
         try:
@@ -253,41 +481,22 @@ def route_replay(state):
 
     return "full"
 
+
+workflow = StateGraph(AgentState, ConfigSchema)
+
+workflow.add_node("asset", define_assets)
+workflow.add_node("image_to_base64", image_to_base64)
+workflow.add_node("flows", define_flows)
+workflow.add_node("threats", define_threats)
+workflow.add_node("gap_analysis", gap_analysis)
+workflow.add_node("finalize", finalize)
+
+
+workflow.set_entry_point("image_to_base64")
 workflow.add_conditional_edges(
-    "image_to_base64",
-    route_replay,
-    {
-        "replay": "threats_assistant",
-        "full": "asset"
-    }
+    "image_to_base64", route_replay, {"replay": "threats", "full": "asset"}
 )
+workflow.add_edge("asset", "flows")
+workflow.add_edge("flows", "threats")
 
-def route_based_on_llm(state, config):
-    start_time = config["configurable"].get("start_time")
-    current_time = datetime.now()
-    time_limit = False if (current_time - start_time).total_seconds() < 12 * 60 else True
-    if state.get("stop") or time_limit:
-        try:
-            update_job_state(state["job_id"], "FINALIZE")
-            create_dynamodb_item(state, AGENT_TABLE)
-            time.sleep(3)
-            update_job_state(state["job_id"], "COMPLETE")
-            return "end"
-        except Exception as e:
-            print(e)
-            update_job_state(state["job_id"], "FAILED")
-            raise e
-
-    return "continue"
-
-
-
-workflow.add_conditional_edges(
-    "threats_assistant",
-    route_based_on_llm,
-    {
-        "continue": "threats_assistant",
-        "end": END
-    }
-)
 agent = workflow.compile()

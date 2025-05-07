@@ -1,9 +1,10 @@
-import time
-import jwt
-from jwt import PyJWKClient
 import os
+import time
+
+import jwt
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.utilities.typing import LambdaContext
+from jwt import PyJWKClient
 
 logger = Logger()
 
@@ -65,7 +66,7 @@ def lambda_handler(event: dict, context: LambdaContext):
         )
 
     except Exception as e:
-        logger.error(f"Token validation failed", extra={"error": str(e)})
+        logger.error("Token validation failed", extra={"error": str(e)})
         return generate_policy(
             "unauthorized", "Deny", event["methodArn"], {"error": str(e)}
         )

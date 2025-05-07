@@ -1,20 +1,17 @@
+import copy
+import json
+import os
+from typing import Any, Dict
+
 from aws_lambda_powertools import Logger, Tracer
-from aws_lambda_powertools.event_handler import APIGatewayRestResolver, CORSConfig
+from aws_lambda_powertools.event_handler import (APIGatewayRestResolver,
+                                                 CORSConfig, Response,
+                                                 content_types)
 from aws_lambda_powertools.logging import correlation_paths
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from utils.utils import custom_serializer
+from exceptions.exceptions import BadRequestError, InternalError, ViewError
 from routes import threat_designer_route
-from exceptions.exceptions import ViewError, InternalError, BadRequestError
-import os
-from typing import Dict, Any
-import json
-import copy
-from aws_lambda_powertools.event_handler import (
-    Response,
-    content_types,
-)
-
-from utils.utils import mask_sensitive_attributes
+from utils.utils import custom_serializer, mask_sensitive_attributes
 
 PORTAL_REDIRECT_URL = os.getenv(key="PORTAL_REDIRECT_URL")
 TRUSTED_ORIGINS = os.getenv(key="TRUSTED_ORIGINS")
@@ -105,20 +102,20 @@ def handle_service_errors(ex: Exception):  # global catch all
 
 
 @app.exception_handler(InternalError)
-def handle_service_errors(ex: InternalError):  # receives exception raised
+def handle_internal_errors(ex: InternalError):  # receives exception raised
     logger.error("Internal Server Error")
     error_dict = {"code": type(ex).__name__, "message": str(ex)}
     return build_error_response(error_dict, 500)
 
 
 @app.exception_handler(ViewError)
-def handle_service_errors(ex: ViewError):  # receives exception raised
+def handle_view_errors(ex: ViewError):  # receives exception raised
     logger.warning("Application Errors")
     return build_error_response(ex.to_dict(), ex.STATUS)
 
 
 @app.exception_handler(BadRequestError)
-def handle_service_errors(ex: BadRequestError):  # receives exception raised
+def handle_bad_request_errors(ex: BadRequestError):  # receives exception raised
     logger.warning("Bad Request Error")
     error_dict = {"code": type(ex).__name__, "message": str(ex.msg)}
     return build_error_response(error_dict, 400)
