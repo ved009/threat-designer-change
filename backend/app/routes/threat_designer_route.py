@@ -1,17 +1,11 @@
-from aws_lambda_powertools import Tracer, Logger
+from aws_lambda_powertools import Logger, Tracer
 from aws_lambda_powertools.event_handler.api_gateway import Router
-
-from services.threat_designer_service import (
-    check_status,
-    fetch_results,
-    invoke_lambda,
-    generate_presigned_url,
-    update_results,
-    generate_presigned_download_url,
-    delete_tm,
-    fetch_all,
-    check_trail
-)
+from services.threat_designer_service import (check_status, check_trail,
+                                              delete_tm, fetch_all,
+                                              fetch_results,
+                                              generate_presigned_download_url,
+                                              generate_presigned_url,
+                                              invoke_lambda, update_results)
 
 tracer = Tracer()
 router = Router()
@@ -23,9 +17,11 @@ LOG = logger = Logger(serialize_stacktrace=False)
 def _tm_status(id):
     return check_status(id)
 
+
 @router.get("/threat-designer/trail/<id>")
 def _tm_status(id):
     return check_trail(id)
+
 
 @router.get("/threat-designer/<id>")
 def _tm_fetch_results(id):

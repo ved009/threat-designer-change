@@ -1,23 +1,39 @@
-import boto3
-import os
-from botocore.exceptions import ClientError
-import base64
-import datetime
-import decimal
-from aws_lambda_powertools import Logger
-from datetime import datetime, timezone
-from prompts import structure_prompt
-from langchain_core.messages.human import HumanMessage
+"""
+AWS utility functions for handling credentials, DynamoDB operations, and AI model interactions.
+Provides functionality for role assumption, state management, image processing, and error handling
+in AWS Lambda environments. Includes tools for working with Amazon Bedrock and structured data.
+"""
 
+import base64
+import decimal
+import os
+import traceback
+from datetime import datetime, timezone
+from typing import (Any, Callable, Dict, List, Optional, ParamSpec, TypeVar,
+                    Union)
+
+import boto3
+from aws_lambda_powertools import Logger
+from botocore.exceptions import ClientError
+from langchain_aws import ChatBedrockConverse
+from langchain_core.messages import BaseMessage
+from langchain_core.messages.human import HumanMessage
+from prompts import structure_prompt
+from state import AgentState
 
 logger = Logger()
 JOB_STATUS = os.environ.get("JOB_STATUS_TABLE")
 TRAIL_TABLE = os.environ.get("AGENT_TRAIL_TABLE")
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def convert_decimals(obj):
+
+def convert_decimals(
+    obj: Union[List[Any], Dict[Any, Any], decimal.Decimal, Any],
+) -> Union[List[Any], Dict[Any, Any], int, float, Any]:
     """Recursively converts Decimal to float or int in a dictionary."""
-    if isinstance(obj, list):
+    if isinstance(obj, List):
         return [convert_decimals(i) for i in obj]
     elif isinstance(obj, dict):
         return {k: convert_decimals(v) for k, v in obj.items()}
@@ -29,7 +45,9 @@ def convert_decimals(obj):
         return obj
 
 
-def update_job_state(job_id, state, retry=None):
+def update_job_state(
+    job_id: str, state: AgentState, retry: bool = None
+) -> Dict[str, Any]:
     try:
         # Create a DynamoDB resource
         dynamodb = boto3.resource("dynamodb")
@@ -70,19 +88,27 @@ def update_job_state(job_id, state, retry=None):
         logger.error(f"An unexpected error occurred: {e}")
         return None
 
-def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush=0):
+
+def update_trail(
+    job_id: str,
+    assets: str = None,
+    flows: str = None,
+    threats: str = None,
+    gaps: str = None,
+    flush: int = 0,
+) -> Optional[Dict[str, Any]]:
     try:
         # Create a DynamoDB resource
         dynamodb = boto3.resource("dynamodb")
 
         # Get the table
         table = dynamodb.Table(TRAIL_TABLE)
-        
+
         # Initialize update expression and attribute dictionaries
         update_expr = "SET "
         expr_names = {}
         expr_values = {}
-        
+
         # Track if this is the first attribute to avoid leading comma
         is_first = True
 
@@ -104,10 +130,10 @@ def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush
         # Handle list fields (threats, gaps)
         if threats is not None:
             threats_list = threats if isinstance(threats, list) else [threats]
-            
+
             if not is_first:
                 update_expr += ", "
-                
+
             if flush == 0:
                 # Replace the entire list
                 update_expr += "#threats = :threats"
@@ -115,8 +141,10 @@ def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush
                 expr_values[":threats"] = threats_list
             else:
                 # Get current item to check if threats exists
-                response = table.get_item(Key={"id": job_id}, ProjectionExpression="threats")
-                if "threats" in response.get('Item', {}):
+                response = table.get_item(
+                    Key={"id": job_id}, ProjectionExpression="threats"
+                )
+                if "threats" in response.get("Item", {}):
                     # Append to existing list
                     update_expr += "#threats = list_append(#threats, :threats)"
                 else:
@@ -128,10 +156,10 @@ def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush
 
         if gaps is not None:
             gaps_list = gaps if isinstance(gaps, list) else [gaps]
-            
+
             if not is_first:
                 update_expr += ", "
-                
+
             if flush == 0:
                 # Replace the entire list
                 update_expr += "#gap = :gap"
@@ -139,8 +167,10 @@ def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush
                 expr_values[":gap"] = gaps_list
             else:
                 # Get current item to check if gaps exists
-                response = table.get_item(Key={"id": job_id}, ProjectionExpression="gap")
-                if "gap" in response.get('Item', {}):
+                response = table.get_item(
+                    Key={"id": job_id}, ProjectionExpression="gap"
+                )
+                if "gap" in response.get("Item", {}):
                     # Append to existing list
                     update_expr += "#gap = list_append(#gap, :gap)"
                 else:
@@ -175,7 +205,7 @@ def update_trail(job_id, assets=None, flows=None, threats=None, gaps=None, flush
         return None
 
 
-def parse_s3_image_to_base64(bucket_name, object_key):
+def parse_s3_image_to_base64(bucket_name: str, object_key: str) -> str:
     try:
         # Create an S3 client
         s3_client = boto3.client("s3")
@@ -206,39 +236,40 @@ def parse_s3_image_to_base64(bucket_name, object_key):
         return None
 
 
-def create_dynamodb_item(agent_state, table_name):
+def create_dynamodb_item(agent_state: AgentState, table_name: str) -> None:
     # Initialize DynamoDB client
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
 
     # Get current UTC timestamp
     current_utc = datetime.now(timezone.utc).isoformat()
-
-    # Convert Pydantic model to dict, handling nested Pydantic objects and existing dicts
-    item = {
-        "job_id": agent_state["job_id"],
-        "assets": agent_state["assets"].dict(),
-        "system_architecture": agent_state["system_architecture"].dict(),
-        "threat_list": agent_state["threat_list"].dict(),
-        "description": agent_state.get("description", None),
-        "assumptions": agent_state.get("assumptions", None),
-        "s3_location": agent_state["s3_location"],
-        "title": agent_state.get("title", None),
-        "owner": agent_state.get("owner", None),
-        "retry": agent_state.get("retry", None),
-        "timestamp": current_utc,
-    }
-
+    logger.info(agent_state)
     try:
+        # Convert Pydantic model to dict, handling nested Pydantic objects and existing dicts
+        item = {
+            "job_id": agent_state["job_id"],
+            "assets": agent_state["assets"].dict(),
+            "system_architecture": agent_state["system_architecture"].dict(),
+            "threat_list": agent_state["threat_list"].dict(),
+            "description": agent_state.get("description", None),
+            "assumptions": agent_state.get("assumptions", None),
+            "s3_location": agent_state["s3_location"],
+            "title": agent_state.get("title", None),
+            "owner": agent_state.get("owner", None),
+            "retry": agent_state.get("retry", None),
+            "timestamp": current_utc,
+        }
+
         # Create a new item in DynamoDB
         response = table.put_item(Item=item)
         logger.info("Item created successfully:", response)
     except Exception as e:
-        logger.error("Error creating item:", e.response["Error"]["Message"])
+        stack_trace = traceback.format_exc()
+        logger.error(f"Error: {e}\n{stack_trace}")
         raise
 
 
-def fetch_results(job_id, table_name):
+def fetch_results(job_id: str, table_name: str) -> Dict[str, Any]:
     dynamodb = boto3.resource("dynamodb")
     table = dynamodb.Table(table_name)
 
@@ -256,22 +287,27 @@ def fetch_results(job_id, table_name):
         else:
             return {"job_id": job_id, "state": "Not Found", "item": None}
 
-    except Exception as e:
+    except Exception:
         raise
 
-human_structure = HumanMessage(
+
+def _retry(
+    model: ChatBedrockConverse, response: BaseMessage, struct: ChatBedrockConverse
+) -> BaseMessage:
+    human_structure = HumanMessage(
         content=[
             {"type": "text", "text": "Convert the <response> into a structured output"},
         ]
     )
-
-def _retry(model, response, struct):
-    reasoning = response.content[0].get('reasoning_content', {}).get('text', None)
+    reasoning = response.content[0].get("reasoning_content", {}).get("text", None)
     struct_message = [structure_prompt(reasoning), human_structure]
     model_with_tools = model.with_structured_output(struct)
     return model_with_tools.invoke(struct_message)
 
-def handle_asset_error(model, struct, thinking=True):
+
+def handle_asset_error(
+    model: ChatBedrockConverse, struct: ChatBedrockConverse, thinking: bool = True
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     def decorator(func):
         def wrapper(response, *args, **kwargs):
             try:
@@ -284,6 +320,7 @@ def handle_asset_error(model, struct, thinking=True):
                 else:
                     # When thinking=False, let the original error raise
                     raise e
-        return wrapper
-    return decorator
 
+        return wrapper
+
+    return decorator

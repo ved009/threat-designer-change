@@ -1,10 +1,8 @@
 from http import HTTPStatus
-from typing import Dict
-from typing import Optional
+from typing import Dict, Optional
 
 
 class ServiceError(Exception):
-
     def __init__(self, status_code: int, msg: str):
         """
         Parameters

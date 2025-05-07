@@ -1,9 +1,14 @@
-from langchain_core.pydantic_v1 import BaseModel, Field
-from typing import List, TypedDict, Annotated, Literal, Optional
+"""Module containing state classes and data models for the threat designer application."""
+
 import operator
+from typing import Annotated, List, Literal, Optional, TypedDict
+
+from langchain_core.pydantic_v1 import BaseModel, Field
 
 
 class Assets(BaseModel):
+    """Model representing system assets or entities in threat modeling."""
+
     type: Annotated[
         Literal["Asset", "Entity"], Field(description="Type, one of Asset or Entity")
     ]
@@ -14,10 +19,14 @@ class Assets(BaseModel):
 
 
 class AssetsList(BaseModel):
+    """Collection of system assets for threat modeling."""
+
     assets: Annotated[List[Assets], Field(description="The list of assets")]
 
 
 class DataFlow(BaseModel):
+    """Model representing data flow between entities in a system architecture."""
+
     flow_description: Annotated[
         str, Field(description="The description of the data flow")
     ]
@@ -30,6 +39,8 @@ class DataFlow(BaseModel):
 
 
 class TrustBoundary(BaseModel):
+    """Model representing trust boundaries between entities in system architecture."""
+
     purpose: Annotated[str, Field(description="The purpose of the trust boundary")]
     source_entity: Annotated[
         str, Field(description="The source entity/asset of the trust boundary")
@@ -40,23 +51,27 @@ class TrustBoundary(BaseModel):
 
 
 class ContinueThreatModeling(BaseModel):
-    """tool to share the gap analysis"""
+    """Tool to share the gap analysis for threat modeling."""
 
     stop: Annotated[
         bool,
         Field(
-            description="Should continue evaluation further threats or the catalog is comprehensive and complete."
+            description="Should continue evaluation further threats or the catalog is comprehensive"
+            " and complete."
         ),
     ]
     gap: Annotated[
         Optional[str],
         Field(
-            description="An in depth gap analysis on how to improve the threat catalog. Required only when 'stop' is False"
+            description="An in depth gap analysis on how to improve the threat catalog."
+            " Required only when 'stop' is False"
         ),
     ] = ""
 
 
 class ThreatSource(BaseModel):
+    """Model representing sources of threats in the system."""
+
     category: Annotated[str, Field(description="The category of the threat source")]
     description: Annotated[
         str, Field(description="The description of the threat source")
@@ -65,6 +80,8 @@ class ThreatSource(BaseModel):
 
 
 class FlowsList(BaseModel):
+    """Collection of data flows, trust boundaries, and threat sources."""
+
     data_flows: Annotated[List[DataFlow], Field(description="The list of data flows")]
     trust_boundaries: Annotated[
         List[TrustBoundary], Field(description="The list of trust boundaries")
@@ -75,17 +92,22 @@ class FlowsList(BaseModel):
 
 
 class Threat(BaseModel):
+    """Model representing an identified security threat."""
+
     name: Annotated[str, Field(description="The name of the threat")]
     stride_category: Annotated[
         str,
         Field(
-            description="The STRIDE category of the threat: One of the following: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege"
+            description="The STRIDE category of the threat: One of the following: Spoofing, "
+            "Tampering, Repudiation, Information Disclosure, Denial of Service, "
+            "Elevation of Privilege"
         ),
     ]
     description: Annotated[
         str,
         Field(
-            description="The exhaustive description of the threat. From 35 to 50 words. Follow threat grammar structure."
+            description="The exhaustive description of the threat. From 35 to 50 words. "
+            "Follow threat grammar structure."
         ),
     ]
     target: Annotated[str, Field(description="The target of the threat")]
@@ -102,14 +124,19 @@ class Threat(BaseModel):
 
 
 class ThreatsList(BaseModel):
+    """Collection of identified security threats."""
+
     threats: Annotated[List[Threat], Field(description="The list of threats")]
 
     def __add__(self, other: "ThreatsList") -> "ThreatsList":
+        """Combine two ThreatsList instances."""
         combined_threats = self.threats + other.threats
         return ThreatsList(threats=combined_threats)
 
 
 class AgentState(TypedDict):
+    """Container for the internal state of the threat modeling agent."""
+
     assets: Optional[AssetsList] = None
     image_data: Optional[str] = None
     system_architecture: Optional[FlowsList] = None
@@ -119,11 +146,11 @@ class AgentState(TypedDict):
     next_step: Optional[str] = None
     threat_list: Annotated[ThreatsList, operator.add]
     job_id: Optional[str] = None
-    retry: Optional[int] = 0
+    retry: Optional[int] = 1
     iteration: Optional[int] = 1
     s3_location: Optional[str]
     title: Optional[str] = None
     owner: Optional[str] = None
     stop: Optional[bool] = False
-    prev_gap: Optional[str] = ""
+    gap: Annotated[List[str], operator.add] = []
     replay: Optional[bool] = False
