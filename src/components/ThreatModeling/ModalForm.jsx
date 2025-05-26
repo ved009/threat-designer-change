@@ -49,9 +49,7 @@ export const ModalComponent = ({
     }));
   };
 
-  // Add this validation function
   const validateForm = (formData) => {
-    // Check if all headers have corresponding non-empty values
     return headers.every((header) => {
       const key = header.toLowerCase();
       if (key === "mitigations") {
@@ -61,7 +59,6 @@ export const ModalComponent = ({
     });
   };
 
-  // Add useEffect to check form validity whenever tempFormData changes
   useEffect(() => {
     setIsFormValid(validateForm(tempFormData));
   }, [tempFormData]);
@@ -82,7 +79,7 @@ export const ModalComponent = ({
   };
 
   const handleDismiss = () => {
-    setTempFormData(formData); // Reset to original data
+    setTempFormData(formData);
     setVisible(false);
   };
 

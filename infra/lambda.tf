@@ -22,6 +22,7 @@ resource "aws_lambda_function" "threat_designer" {
       ARCHITECTURE_BUCKET = aws_s3_bucket.architecture_bucket.id,
       MAIN_MODEL          = jsonencode(var.model_main)
       MODEL_STRUCT        = jsonencode(var.model_struct)
+      MODEL_SUMMARY       = jsonencode(var.model_summary)
       REASONING_MODELS    = jsonencode(var.reasoning_models)
     }
   }

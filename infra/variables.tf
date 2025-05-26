@@ -65,6 +65,17 @@ variable "model_struct" {
   }
 }
 
+variable "model_summary" {
+  type = object({
+    id          = string
+    max_tokens  = number
+  })
+  default = {
+    id          = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    max_tokens  = 4000
+  }
+}
+
 variable "username" {
   type = string
   description = "Cognito username"

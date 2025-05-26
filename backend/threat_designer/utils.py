@@ -248,6 +248,7 @@ def create_dynamodb_item(agent_state: AgentState, table_name: str) -> None:
         # Convert Pydantic model to dict, handling nested Pydantic objects and existing dicts
         item = {
             "job_id": agent_state["job_id"],
+            "summary": agent_state.get("summary", None),
             "assets": agent_state["assets"].dict(),
             "system_architecture": agent_state["system_architecture"].dict(),
             "threat_list": agent_state["threat_list"].dict(),

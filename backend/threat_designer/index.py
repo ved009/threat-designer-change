@@ -55,6 +55,7 @@ def _handle_replay_state(state: AgentState, job_id: str) -> AgentState:
     state.update(
         {
             "replay": True,
+            "summary": item.get("summary", None),
             "assets": AssetsList(**item["assets"]),
             "system_architecture": FlowsList(**item["system_architecture"]),
             "retry": 1,
@@ -111,6 +112,7 @@ def lambda_handler(event: Dict[str, Any], context) -> Dict[str, Any]:
         "configurable": {
             "model_main": models["main_model"],
             "model_struct": models["struct_model"],
+            "model_summary": models["summary_model"],
             "start_time": datetime.now(),
             "reasoning": thinking,
         }

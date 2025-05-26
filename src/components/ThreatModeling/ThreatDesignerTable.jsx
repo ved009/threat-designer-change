@@ -13,7 +13,6 @@ export const ThreatTableComponent = ({
   title = "Table",
   emptyMsg = "No data",
 }) => {
-  // Automatically generate column definitions from headers
   const [openModal, setOpenModal] = React.useState(false);
   const [selectedIndex, setSelectedIndex] = React.useState(-1);
   const [selectedItems, setSelectedItems] = React.useState([]);
@@ -29,9 +28,7 @@ export const ThreatTableComponent = ({
     setOpenModal(true);
   };
 
-  // Automatically generate column definitions from headers
   const columnDefinitions = headers.map((header) => {
-    // Convert header like "Source_entity" to "Source Entity"
     const formattedHeader = header
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -54,9 +51,8 @@ export const ThreatTableComponent = ({
         columnDefinitions={columnDefinitions}
         onSelectionChange={({ detail }) => {
           setSelectedItems(detail.selectedItems);
-          // Find the index of the selected item in the data array
           if (detail.selectedItems.length > 0) {
-            const selectedItem = detail.selectedItems[0]; // Since selectionType is "single"
+            const selectedItem = detail.selectedItems[0];
             const index = data.findIndex((item) => item === selectedItem);
             setSelectedIndex(index);
           } else {

@@ -4,18 +4,14 @@ import { config } from "../../config.js";
 
 const baseUrl = config.controlPlaneAPI + "/threat-designer";
 
-// Create axios instance with interceptor to add token
 const instance = axios.create({
   baseURL: baseUrl,
 });
 
 instance.interceptors.request.use(async (config) => {
   try {
-    // Get the current session from Cognito
     const session = await fetchAuthSession();
-    // Get the access token
     const token = session.tokens.idToken.toString();
-    // Set the Authorization header with Bearer prefix
     config.headers.Authorization = `Bearer ${token}`;
     return config;
   } catch (error) {

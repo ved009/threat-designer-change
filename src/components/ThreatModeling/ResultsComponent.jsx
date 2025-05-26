@@ -152,10 +152,7 @@ export default function ThreatModelingOutput({
         <div style={{ height: "25px" }}></div>
         <SpaceBetween size="m">
           <SpaceBetween direction="horizontal" size="xs">
-            <Header
-              counter={`(${threatCatalogData.length})`}
-              variant="h2"
-            >
+            <Header counter={`(${threatCatalogData.length})`} variant="h2">
               Threat Catalog
             </Header>
             <Button variant="link" onClick={handleModal}>

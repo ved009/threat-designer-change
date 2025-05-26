@@ -10,206 +10,217 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
+def summary_prompt() -> str:
+    return """<instruction>
+Use the information provided by the user to generate a short headline summary of max 40 words.
+</instruction> \n
+    """
+
 
 def asset_prompt() -> str:
-    return """You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
-    on a given architecture. Specifically your role is to carefully review the architecture and identify key assets and Entities.
-    <task>
-    Identify Key Assets and Entities:
-Start by identifying the most critical assets and entities within the system that require protection. Assets could include sensitive data, databases, communication channels, or APIs, while entities represent users, services, or systems interacting with the system.
-If provided by the user pay attention to the description of the solution provided within <description> and the assumptions provided under <assumptions>. \n
-Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
-"What are the critical assets or components within the system that need protection? Who are the key entities involved? List each asset and entity in detail." \n
-    </task> \n
-    <output_format>
-    You should only respond with the following format:
-    Type: [Asset or Entity]
-    Name: [Asset/Entity Name]
-    Description: [Brief description of the asset/entity]
-    </output_format> \n
+    return """<instruction>
+You are an expert in Security, AWS, and Threat Modeling. Your role is to carefully review a given architecture and identify key assets and entities that require protection. Follow these steps:
+
+1. Review the provided <description> and <assumptions> to understand the solution and security context.
+
+2. Identify the most critical assets within the system, such as sensitive data, databases, communication channels, or APIs. These are components that need protection.
+
+3. Identify the key entities involved, such as users, services, or systems interacting with the system.
+
+4. For each identified asset or entity, provide the following information in the specified format:
+
+Type: [Asset or Entity]
+Name: [Asset/Entity Name]
+Description: [Brief description of the asset/entity]
+</instruction> \n
     """
 
 
 def flow_prompt(assets_state) -> str:
-    return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
-    on a given architecture. Specifically your role is to carefully review the architecture and Understand the System Architecture, Data Flows, and Trust Boundaries. leverage as well the information provided by your peer
-    in <identified_assets_and_entities>. \n
-    If provided by the user pay attention to the description of the solution provided within <description> and the assumptions provided under <assumptions>. \n
-    Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
-    <task>
-    Understand the System Architecture, Data Flows, and Trust Boundaries:
-Analyze the system architecture, focusing on how data flows between components and where it interacts with external entities. Pay close attention to trust boundaries, where data crosses between different trust zones (e.g., user-server or server-database).
-"Describe how data moves through the system, including external inputs, interactions between different entities, and trust boundaries between components." \n
-    </task> \n
-    You should only respond with the following format:
-    <data_flow_definitions>
-    flow_description: [Description of the data flow]
-    source_entity: [Source entity name]
-    target_entity: [Target entity name]
-    assets: [List of assets involved]
-    </data_flow_definitions> \n
+    return f"""<task>
+Analyze the given system architecture and provide the following information:
 
-    <trust_boundaries>
-    purpose: [Purpose of the trust boundary]
-    source_entity: [Source entity name]
-    target_entity: [Target entity name]
-    </trust_boundaries> \n
+1. Data Flow Definitions:
+- Describe the flow of data through the system, including the source and target entities, and the assets involved.
+- Use the following format for each data flow:
+<data_flow_definition>
+flow_description: [Description of the data flow]
+source_entity: [Source entity name]
+target_entity: [Target entity name]
+assets: [List of assets involved]
+</data_flow_definition>
 
-    <threat_sources>
-    category: [threat source actor category]
-    description: [description of the threat]
-    examples: [examples of the threat actor]
-    </threat_sources> \n
-    </output_format> \n
+2. Trust Boundaries:
+- Identify the trust boundaries where data crosses between different trust zones.
+- Use the following format for each trust boundary:
+<trust_boundary>
+purpose: [Purpose of the trust boundary]
+source_entity: [Source entity name]
+target_entity: [Target entity name]
+</trust_boundary>
 
-    <identified_assets_and_entities>
-    {assets_state}
-    </identified_assets_and_entities>
+3. Threat Actors:
+- Identify the relevant threat actors, which are individuals, groups, or entities that have the intent, capability, and opportunity to harm the system's security.
+- Use the following format for each threat actor category:
+<threat_actor>
+category: [Threat actor category]
+description: [Description of the threat actor category]
+examples: [Examples of the threat actor]
+</threat_actor>
+
+Consider the following information provided:
+<description> [Description of the solution provided by the user]
+<assumptions> [Assumptions provided by the user]
+
+<identified_assets_and_entities>
+{assets_state}
+</identified_assets_and_entities>
     """
 
 
 def gap_prompt(gap, assets, system_architecture) -> str:
-    return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modeling
-    on a given architecture. Specifically your role is to validate whether the threat catalog provided in <threats> is comprehensive enough or no. The supporting information is available in: <identified_assets_and_entities> and <data_flow>.
-    Think very carefully and analyze the architecture, <identified_assets_and_entities>, <data_flow> and <threats>. 
-        If provided by the user pay attention to the description of the solution provided within <solution_description> and the assumptions provided under <assumptions>. \n
-    Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
-    This is an iterative process and is possible that you have already provided a gap analysis. If the gap analysis is present in <gap>, consider it when assessing the <threats> \n
-    <gap>
-    {gap}
-    </gap>
-    <identified_assets_and_entities>
-    {assets}
-    </identified_assets_and_entities> \n
-    <data_flow>
-    {system_architecture}
-    </data_flow>\n
+    return f"""<task_description>
+You are an expert in Security, AWS, and Threat Modeling, tasked with validating the comprehensiveness of a provided threat catalog for a given architecture. Your role is to assess the threat model and ensure it covers all relevant aspects, including:
+</task_description>
+
+<assessment_criteria>
+1. Comprehensive coverage of both technology-specific threats and fundamental security principles applicable universally.
+2. Proper mapping of threats to identified threat actors using an attacker-centric approach.
+3. Balance between concrete technical mitigations and broader security concepts that remain relevant regardless of the technology stack.
+4. Completeness across all potential attack vectors, not just those specific to certain technologies or components.
+</assessment_criteria>
+
+<instructions>
+1. Carefully review the provided information:
+   - <identified_assets_and_entities>{assets}</identified_assets_and_entities>
+   - <data_flow>{system_architecture}</data_flow>
+   - <threats>Threat Catalog</threats>
+
+2. If a <solution_description> is provided, consider the described solution and the <assumptions> established, as they define the security context and boundaries for analysis.
+
+3. If a previous <gap> analysis is available, take it into account when assessing the <threats> catalog.
+
+<previous_gap>
+{gap}
+</previous_gap>
+
+4. Think critically and analyze the architecture, identified assets and entities, data flow, and threats.
+
+5. Evaluate whether the <threats> catalog meets the assessment criteria outlined above.
+
+6. Provide your analysis and recommendations for improving the threat catalog's comprehensiveness, if necessary.
+</instructions>
     """
 
 
 def threats_improve_prompt(gap, threat_list, assets, flows) -> str:
-    return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modeling
-        on a given architecture. Specifically your role is to enrich the threat catalog by including new threats that may have been missed by your colleague. \n
-        If a gap analysis is provided in <gap> leverage that information to improve the threat catalog \n
-        The existing threat catalog is available within <threats> and the supporting information is available in: <identified_assets_and_entities> and <data_flow>.
-        Think very carefully and analyze the architecture, <identified_assets_and_entities>, <data_flow> and <threats>. Based on that identify the new threats. If you think the existing
-        threat catalog is complete, is perfectly fine to not provide new threats. It's important that you provide new threats only if they are relevant. 
-            If provided by the user pay attention to the description of the solution provided within <solution_description> and the assumptions provided under <assumptions>. \n
-        Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
-        Make sure that the threat description is exhaustive. A good description should be from 35-50 words. here are some good description examples within <description_example>.\n
+    return f"""<task>
+You are an expert in Security, AWS, and Threat Modeling. Your role is to enrich an existing threat catalog by identifying new threats that may have been missed, as part of a team working on threat modeling for a given architecture.
+</task>
 
-        <description_example>
-        - An internal actor who has access to production logs can read sensitive customer information contained in chatbot conversation logs, which leads to unauthorized exposure of personal customer details, resulting in reduced confidentiality of impacted individuals and sensitive data. \n
-        - An external threat actor that can infiltrate insecure environments can exfiltrate proprietary LLM models and artifacts, which leads to unauthorized competitive use, resulting in reduced confidentiality of intellectual property. \n
-        - An end user who is over reliant on LLM recommendations can accept biased, unethical, or incorrect guidance and advice, which leads to discriminatory outcomes, reputational damage, financial loss, legal issues or cyber risks, resulting in reduced, resulting in reduced integrity and/or confidentiality of LLM system and connected resources. \n
-        </description_example>
+<instructions>
+1. Review the provided information:
+- <gap>{gap}</gap>: Leverage any gap analysis information to improve the threat catalog.
+- <threats>{threat_list}</threats>: The existing threat catalog.
+- <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Identified assets and entities in the architecture.
+- <data_flow>{flows}</data_flow>: Data flow information.
+- <solution_description>: Description of the solution (if provided).
+- <assumptions>: Assumptions about the security context and boundaries (if provided).
 
-        <gap>
-        {gap}
-        </gap>
-        <threats>
-        {threat_list}
-        </threats>
+2. Analyze the architecture, identified assets and entities, data flow, and existing threats carefully.
 
+3. Identify any new relevant threats that may have been missed in the existing threat catalog.
 
-    <methodology>
-        Identify STRIDE-Based Threats for Each Asset and Entity:
-    For each identified asset and entity, use the STRIDE model to classify potential threats:
+4. When describing new threats, follow these guidelines:
+- Ensure the threat description is exhaustive, with 35-50 words.
+- Use the provided <threat_grammar> structure:
+<threat_grammar>
+[threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
+</threat_grammar>
 
-        S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
-        T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
-        R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
-        I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
-        D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
-        E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
-        "For each STRIDE category, identify how potential attackers could exploit vulnerabilities in each asset or entity." \n
+5. Consider the STRIDE model for each identified asset and entity:
+- S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
+- T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
+- R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
+- I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
+- D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
+- E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
 
-    Think hard to provide a comprehensive and exhaustive list of threats. Look very carefully to not miss anything out \n
-    </methodology>
+6. Provide new threats in the specified <output_format>, including threat name, STRIDE category, description, target, impact, likelihood, and mitigations.
+<output_format>
+Threat Name: [Threat Name]
+STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
+Description: [description of the threat]
+Target: [What asset or component is being targeted]
+Impact: [Potential consequences if the threat is realized]
+Likelihood: [Estimated probability of occurrence: Low/Medium/High]
+Mitigations:
+1. [Mitigation strategy 1]
+....
+N. [Mitigation strategy N]
+</output_format>
 
-        <identified_assets_and_entities>
-        {assets}
-        </identified_assets_and_entities>
-        <data_flow>
-        {flows}
-        </data_flow>
-
-
-        <output_format>
-        Threat Name: [Threat Name]
-        STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
-        Description: [description of the threat]
-        Target: [What asset or component is being targeted]
-        Impact: [Potential consequences if the threat is realized]
-        Likelihood: [Estimated probability of occurrence: Low/Medium/High]
-        Mitigations:
-        1. [Mitigation strategy 1]
-        ....
-        N. [Mitigation strategy N]
-        </output_format> \n
+7. When creating threat models, ensure comprehensive coverage by:
+- Thinking like an attacker and identifying both technology-specific threats and fundamental security principles that apply universally.
+- Providing an exhaustive list of threats mapped to identified threat actors and data flows.
+- Balancing concrete technical mitigations with broader security concepts that remain relevant regardless of the underlying technology stack or application type.
+</instructions>
         """
 
 
 def threats_prompt(assets, flows) -> str:
-    return f"""You are an expert in Security, AWS and Threat Modeling. You are part of a team of assistant whose overall goal is to perform threat modelling
-        on a given architecture. Specifically your role is to generate the threats by analyzing the architecture in details and leveraging the information provided by your peers in:
-    <identified_assets_and_entities> and <data_flow>. \n
-    If provided by the user pay attention to the description of the solution provided within <solution_description> and the assumptions provided under <assumptions>. \n
-    Assumptions Establish the baseline security context and boundaries that help identify what's in scope for analysis and what potential threats are relevant to consider. \n
-    Make sure that the threat description is exhaustive.
-        A good description should be from 35-50 words and follow the <threat_grammar> structure. here are some good description examples within <description_example>.
-
-        <description_example>
-        - An internal actor who has access to production logs can read sensitive customer information contained in chatbot conversation logs, which leads to unauthorized exposure of personal customer details, resulting in reduced confidentiality of impacted individuals and sensitive data. \n
-        - An external threat actor that can infiltrate insecure environments can exfiltrate proprietary LLM models and artifacts, which leads to unauthorized competitive use, resulting in reduced confidentiality of intellectual property. \n
-        - An end user who is over reliant on LLM recommendations can accept biased, unethical, or incorrect guidance and advice, which leads to discriminatory outcomes, reputational damage, financial loss, legal issues or cyber risks, resulting in reduced, resulting in reduced integrity and/or confidentiality of LLM system and connected resources. \n
-        </description_example> \n
-
-        <threat_grammar>
-        [threat source] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets]. \n
-        Sample: \n
-        An [internet-based threat actor][with access to another user's token] can [spoof another user] which leads to [viewing the user's bank account information], negatively impacting [user banking data] \n
-        An [internal threat actor] [who has administrator access] can [tamper with data stored in the database] which leads to [modifying the username for the all-time high score], negatively impacting [the video game high score list] \n
-        An [internet-based threat actor] [with user permissions] can [make thousands of concurrent requests] which leads to [the application being unable to handle other user requests], negatively impacting [the web application's responsiveness to valid requests]. \n
-        <threat_grammar>\n
-
-        <task>
-        Identify STRIDE-Based Threats for Each Asset and Entity:
-    For each identified asset and entity, use the STRIDE model to classify potential threats:
-
-        S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
-        T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
-        R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
-        I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
-        D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
-        E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
-        "For each STRIDE category, identify how potential attackers could exploit vulnerabilities in each asset or entity." \n
+    return f"""<task>
+You are an expert in Security, AWS, and Threat Modeling. Your task is to generate a comprehensive list of threats for a given architecture by analyzing the provided information and following the specified output format. You are part of a team of assistants whose overall goal is to perform threat modeling on a given architecture. Your specific role is to leverage the information provided by your peers in the following sections
+</task>
 
 
-    Think hard to provide a comprehensive and exhaustive list of threats. Look very carefully to not miss anything out \n
-    </task>
+<instructions>
+1. Review the provided information:
+- <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Identified assets and entities in the architecture.
+- <data_flow>{flows}</data_flow>: Data flow information.
+- <solution_description>: Description of the solution (if provided).
+- <assumptions>: Assumptions about the security context and boundaries (if provided).
 
-        <identified_assets_and_entities>
-        {assets}
-        </identified_assets_and_entities>
-        <data_flow>
-        {flows}
-        </data_flow>
+2. Analyze the architecture, identified assets and entities, data flow, carefully.
+
+3. When describing new threats, follow these guidelines:
+- Ensure the threat description is exhaustive, with 35-50 words.
+- Use the provided <threat_grammar> structure:
+<threat_grammar>
+[threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
+</threat_grammar>
+
+4. Consider the STRIDE model for each identified asset and entity:
+- S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
+- T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
+- R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
+- I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
+- D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
+- E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
+
+5. Provide new threats in the specified <output_format>, including threat name, STRIDE category, description, target, impact, likelihood, and mitigations.
+<output_format>
+Threat Name: [Threat Name]
+STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
+Description: [description of the threat]
+Target: [What asset or component is being targeted]
+Impact: [Potential consequences if the threat is realized]
+Likelihood: [Estimated probability of occurrence: Low/Medium/High]
+Mitigations:
+1. [Mitigation strategy 1]
+....
+N. [Mitigation strategy N]
+</output_format>
+
+6. When creating threat models, ensure comprehensive coverage by:
+- Thinking like an attacker and identifying both technology-specific threats and fundamental security principles that apply universally.
+- Providing an exhaustive list of threats mapped to identified threat actors and data flows.
+- Balancing concrete technical mitigations with broader security concepts that remain relevant regardless of the underlying technology stack or application type.
+</instructions>
+"""
 
 
-        <output_format>
-        Threat Name: [Threat Name]
-        STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
-        Description: [description of the threat]
-        Target: [What asset or component is being targeted]
-        Impact: [Potential consequences if the threat is realized]
-        Likelihood: [Estimated probability of occurrence: Low/Medium/High]
-        Mitigations:
-        1. [Mitigation strategy 1]
-        ....
-        N. [Mitigation strategy N]
-        </output_format> \n
-        """
+
 
 
 def structure_prompt(data) -> str:
