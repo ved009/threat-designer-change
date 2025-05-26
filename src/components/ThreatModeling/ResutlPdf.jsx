@@ -15,13 +15,17 @@ export const createThreatModelingPDF = async (
 ) => {
   const doc = new jsPDF();
   let yPos = 20;
-
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 14;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const textWidth = pageWidth - (margin * 2);
+  
   // Title
-  doc.setFontSize(14); // Changed from 20 to 14
+  doc.setFontSize(14);
   doc.text(title, 105, yPos, { align: "center" });
-  yPos += 20;
+  yPos += 15;
 
-  // Architecture diagram section remains the same except for font size changes
+  // Architecture diagram section
   if (architectureDiagramBase64) {
     try {
       let imageData = architectureDiagramBase64;
@@ -29,14 +33,15 @@ export const createThreatModelingPDF = async (
         imageData = `data:${architectureDiagramBase64.type};base64,${architectureDiagramBase64.value}`;
       }
 
-      if (yPos > 250) {
+      // Check if we need a new page for the diagram
+      if (yPos > pageHeight - 40) {
         doc.addPage();
         yPos = 20;
       }
 
-      doc.setFontSize(14); // Changed from 16 to 14
-      doc.text("Architecture Diagram", 14, yPos);
-      yPos += 10;
+      doc.setFontSize(12);
+      doc.text("Architecture Diagram", margin, yPos);
+      yPos += 8;
 
       const img = new Image();
       await new Promise((resolve, reject) => {
@@ -45,42 +50,89 @@ export const createThreatModelingPDF = async (
         img.src = imageData;
       });
 
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const maxWidth = pageWidth - 28;
-      const scale = 0.8;
-      const imgWidth = Math.min(maxWidth * scale, img.width * scale);
+      const imgScale = 0.8;
+      const imgWidth = Math.min(textWidth, img.width * imgScale);
       const imgHeight = (img.height * imgWidth) / img.width;
-
-      doc.addImage(imageData, "JPEG", 14, yPos, imgWidth, imgHeight);
-      yPos += imgHeight + 10;
-    } catch (error) {
-      console.error("Error adding architecture diagram to PDF:", error);
-      doc.setFontSize(10); // Error message in size 10
-      doc.setTextColor(255, 0, 0);
-      doc.text("Error: Could not load architecture diagram", 14, yPos);
-      doc.setTextColor(0, 0, 0);
-      yPos += 15;
-    }
-  }
-
-  // Helper function to add section
-  const addSection = (title, data, columns) => {
-    if (data?.length > 0) {
-      if (yPos > 250) {
+      
+      // Check if diagram fits on current page
+      if (yPos + imgHeight > pageHeight - margin) {
         doc.addPage();
         yPos = 20;
       }
 
-      doc.setFontSize(14);
-      doc.text(title, 14, yPos); // Changed from 10 to 14 to align with table
-      yPos += 5;
+      doc.addImage(imageData, "JPEG", margin, yPos, imgWidth, imgHeight);
+      yPos += imgHeight + 8;
+    } catch (error) {
+      console.error("Error adding architecture diagram to PDF:", error);
+      doc.setFontSize(10);
+      doc.setTextColor(255, 0, 0);
+      doc.text("Error: Could not load architecture diagram", margin, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+    }
+  }
 
+  // Add text section with proper pagination
+  const addTextSection = (sectionTitle, text) => {
+    if (!text) return;
+    
+    // Check if we need a new page for section title
+    if (yPos > pageHeight - 30) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Add section title
+    doc.setFontSize(12);
+    doc.text(sectionTitle, margin, yPos);
+    yPos += 8;
+    
+    // Process text content with pagination
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(text, textWidth);
+    const lineHeight = 5;
+    
+    for (let i = 0; i < lines.length; i++) {
+      // Check if we need a new page before adding this line
+      if (yPos + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      doc.text(lines[i], margin, yPos);
+      yPos += lineHeight;
+    }
+    
+    yPos += 8; // Space after section
+  };
+
+  // Add table section with proper pagination
+  const addTableSection = (sectionTitle, data, columns, forceLandscape = false) => {
+    if (!data || data.length === 0) return;
+    
+    if (forceLandscape) {
+      // Add a new page in landscape orientation
+      doc.addPage('a4', 'landscape');
+      
+      // Reset position for the new page
+      yPos = 20;
+      
+      // Get new dimensions for landscape
+      const landscapeWidth = doc.internal.pageSize.getWidth(); // Width in landscape
+      const landscapeHeight = doc.internal.pageSize.getHeight(); // Height in landscape
+      
+      doc.setFontSize(12);
+      doc.text(sectionTitle, margin, yPos);
+      yPos += 8;
+      
       doc.autoTable({
         startY: yPos,
-        styles: { fontSize: 10 },
+        styles: { fontSize: 9, cellPadding: 2 },
         headStyles: {
-          fontSize: 10,
-          halign: "left", // Ensures header text aligns to the left
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: "left",
+          cellPadding: 2,
         },
         head: [
           columns.map((col) =>
@@ -95,63 +147,78 @@ export const createThreatModelingPDF = async (
             Array.isArray(row[col]) ? row[col].map((item) => `• ${item}`).join("\n") : row[col]
           )
         ),
-        margin: { left: 14, top: 10 }, // Aligns with the section title
+        margin: { left: margin, right: margin },
+        tableWidth: 'auto',
       });
-
-      yPos = doc.lastAutoTable.finalY + 15;
-    }
-  };
-
-  // Helper function to add text paragraph section
-  const addTextSection = (title, text) => {
-    if (text) {
-      if (yPos > 250) {
+    } else {
+      // Regular table handling for portrait orientation
+      if (yPos > pageHeight - 30) {
         doc.addPage();
         yPos = 20;
       }
-
-      doc.setFontSize(14); // Section title at 14
-      doc.text(title, 14, yPos);
-      yPos += 5;
-
-      doc.setFontSize(10); // Description text at 10
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 14;
-      const maxWidth = pageWidth - margin * 2;
-      const lines = doc.splitTextToSize(text, maxWidth);
-
-      doc.text(lines, margin, yPos);
-      yPos += lines.length * 7 + 10;
+      
+      doc.setFontSize(12);
+      doc.text(sectionTitle, margin, yPos);
+      yPos += 8;
+      
+      doc.autoTable({
+        startY: yPos,
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: {
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: "left",
+          cellPadding: 2,
+        },
+        head: [
+          columns.map((col) =>
+            col
+              .split("_")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ")
+          ),
+        ],
+        body: data.map((row) =>
+          columns.map((col) =>
+            Array.isArray(row[col]) ? row[col].map((item) => `• ${item}`).join("\n") : row[col]
+          )
+        ),
+        margin: { left: margin, right: margin },
+        tableWidth: 'auto',
+      });
+      
+      yPos = doc.lastAutoTable.finalY + 8;
     }
   };
-
-  // Add sections
+  
+  // Add sections in order
   if (description) {
     addTextSection("Description", description);
   }
-
+  
   if (assumptions?.length > 0) {
-    addSection("Assumptions", assumptions, ["assumption"]);
+    addTableSection("Assumptions", assumptions, ["assumption"]);
   }
-
+  
   if (assets?.length > 0) {
-    addSection("Assets", assets, ["type", "name", "description"]);
+    addTableSection("Assets", assets, ["type", "name", "description"]);
   }
-
+  
   if (dataFlowData?.length > 0) {
-    addSection("Data Flow", dataFlowData, ["flow_description", "source_entity", "target_entity"]);
+    addTableSection("Data Flow", dataFlowData, ["flow_description", "source_entity", "target_entity"]);
   }
-
+  
   if (trustBoundaryData?.length > 0) {
-    addSection("Trust Boundary", trustBoundaryData, ["purpose", "source_entity", "target_entity"]);
+    addTableSection("Trust Boundary", trustBoundaryData, ["purpose", "source_entity", "target_entity"]);
   }
-
+  
   if (threatSourceData?.length > 0) {
-    addSection("Threat Source", threatSourceData, ["category", "description", "example"]);
+    addTableSection("Threat Source", threatSourceData, ["category", "description", "example"]);
   }
-
+  
+  // Add Threat Catalog in landscape mode
   if (threatCatalogData?.length > 0) {
-    addSection("Threat Catalog", threatCatalogData, [
+    addTableSection("Threat Catalog", threatCatalogData, [
       "name",
       "stride_category",
       "description",
@@ -159,7 +226,7 @@ export const createThreatModelingPDF = async (
       "impact",
       "likelihood",
       "mitigations",
-    ]);
+    ], true); // true flag forces landscape mode
   }
 
   return doc;

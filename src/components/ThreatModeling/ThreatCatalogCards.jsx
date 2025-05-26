@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from "react";
 import Box from "@cloudscape-design/components/box";
 import SpaceBetween from "@cloudscape-design/components/space-between";
-import { Cards, Link } from "@cloudscape-design/components";
+import { Link } from "@cloudscape-design/components";
+import Grid from "@cloudscape-design/components/grid";
+import Container from "@cloudscape-design/components/container";
 import Button from "@cloudscape-design/components/button";
 import Header from "@cloudscape-design/components/header";
 import { useNavigate } from "react-router";
 import { S3DownloaderComponent } from "./S3Downloader";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
 import { Spinner, ButtonDropdown } from "@cloudscape-design/components";
+import Badge from "@cloudscape-design/components/badge";
 import {
   getThreatModelingStatus,
   getThreatModelingAllResults,
   deleteTm,
 } from "../../services/ThreatDesigner/stats";
+
 
 const StatusIndicatorComponent = ({ status }) => {
   switch (status) {
@@ -25,9 +29,7 @@ const StatusIndicatorComponent = ({ status }) => {
     case "LOADING":
       return (
         <SpaceBetween alignItems="center">
-          <div style={{ marginTop: "20px" }}>
             <Spinner />
-          </div>
         </SpaceBetween>
       );
     default:
@@ -104,6 +106,20 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
     }
   };
 
+  // Create a grid definition based on the number of items
+  const createGridDefinition = () => {
+    // Create a grid with 2 columns
+    const gridDefinition = [];
+    
+    results.forEach(() => {
+      gridDefinition.push({
+        colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 }
+      });
+    });
+    
+    return gridDefinition;
+  };
+
   return (
     <SpaceBetween size="s">
       <Header variant="h1">Threat Catalog</Header>
@@ -112,64 +128,114 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
           <SpaceBetween alignItems="center">
             <Spinner size="large" />
           </SpaceBetween>
-        ) : (
-          <Cards
-            cardDefinition={{
-              header: (item) => {
-                const jobId = item?.job_id;
-                return (
-                  <Header
-                    variant="h2"
-                    actions={
-                      <ButtonDropdown
-                        onItemClick={(itemClickDetails) => {
-                          if (itemClickDetails.detail.id === "delete") {
-                            handleDelete(jobId);
-                          }
+        ) : results.length > 0 ? (
+          <Grid gridDefinition={createGridDefinition()}>
+            {results.map((item) => (
+              <div key={item.job_id} style={{ height: 250 }}>
+                <Container 
+                  key={item.job_id}
+                  media={{
+                    content: <S3DownloaderComponent fileName={item?.s3_location} />,
+                    position: "side",
+                    width: "40%"
+                  }}
+                  fitHeight
+                  header={
+                    <Header
+                      variant="h2"
+                      actions={
+                        <ButtonDropdown
+                          onItemClick={(itemClickDetails) => {
+                            if (itemClickDetails.detail.id === "delete") {
+                              handleDelete(item.job_id);
+                            }
+                          }}
+                          items={[{ id: "delete", text: "Delete", disabled: false }]}
+                          variant="icon"
+                        />
+                      }
+                      style={{ width: '100%', overflow: 'hidden' }}
+                    >
+                        <Link 
+                          fontSize="heading-m" 
+                          onFollow={() => navigate(`/${item.job_id}`)}
+                        >
+                          {item?.title || "Untitled"}
+                        </Link>
+                    </Header>
+                  }
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    height: '100%', 
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ 
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
+                      padding: '0 0 10px 0'
+                    }}>
+                      <Box 
+                        variant="small" 
+                        color="text-body-secondary"
+                        style={{
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          textOverflow: 'ellipsis'
                         }}
-                        items={[{ id: "delete", text: "Delete", disabled: false }]}
-                        variant="icon"
-                      />
-                    }
-                  >
-                    <Link fontSize="heading-m" onFollow={() => navigate(`/${item?.job_id}`)}>
-                      {item?.title}
-                    </Link>
-                  </Header>
-                );
-              },
-              sections: [
-                {
-                  id: "image",
-                  content: (item) => <S3DownloaderComponent fileName={item?.s3_location} />,
-                },
-                {
-                  id: "status",
-                  header: "Status",
-                  content: (item) => <StatusComponponent id={item?.job_id} />,
-                },
-              ],
-            }}
-            cardsPerRow={[
-              { cards: 1, minWidth: 300 },
-              { cards: 2, minWidth: 650 },
-              { cards: 3, minWidth: 1000 },
-              { minWidth: 1300, cards: 4 },
-            ]}
-            items={results}
-            loadingText="Loading catalog"
-            trackBy="id"
-            visibleSections={["image", "status"]}
-            empty={
-              <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
-                <SpaceBetween size="m">
-                  <b>No threat model</b>
-                </SpaceBetween>
-              </Box>
-            }
-          />
+                      >
+                        {item?.summary || "No summary available"}
+                      </Box>
+                    </div>
+
+                    <div>
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start',
+                        width: '100%'
+                      }}>    
+                        <div>
+                          <Box variant="awsui-key-label">Status</Box>
+                          <StatusComponponent id={item?.job_id} />
+                        </div>                    
+                        <div>
+                          <Box variant="awsui-key-label" textAlign="left">Threats</Box>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <SpaceBetween direction="horizontal" size="xs">
+                              <Badge color="severity-high">
+                                {item?.threatCounts?.high || "-"}
+                              </Badge>
+                              <Badge color="severity-medium">
+                                {item?.threatCounts?.medium || "-"}
+                              </Badge>
+                              <Badge color="severity-low">
+                                {item?.threatCounts?.low || "-"}
+                              </Badge>
+                            </SpaceBetween>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Container>
+              </div>
+            ))}
+          </Grid>
+        ) : (
+          <Box margin={{ vertical: "xs" }} textAlign="center" color="inherit">
+            <SpaceBetween size="m">
+              <b>No threat model</b>
+            </SpaceBetween>
+          </Box>
         )}
       </div>
     </SpaceBetween>
   );
+
 };
