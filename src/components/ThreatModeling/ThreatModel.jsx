@@ -98,7 +98,6 @@ export const ThreatModel = ({ user }) => {
 
   const handleDownload = async (format = "docx") => {
     try {
-      // Create DOCX document
       const doc = await createThreatModelingDocument(
         response?.item?.title,
         response?.item?.description,
@@ -129,7 +128,6 @@ export const ThreatModel = ({ user }) => {
       }
     } catch (error) {
       console.error(`Error generating ${format} document:`, error);
-      // Add error handling UI feedback here
     } finally {
     }
   };
@@ -141,29 +139,22 @@ export const ThreatModel = ({ user }) => {
 
   function updateThreatModeling(type, index, newItem) {
     const newState = { ...response };
-    // Helper function to update arrays
     const updateArray = (array, index, newItem) => {
       if (newItem === null) {
-        // Delete item at index
         return array.filter((_, i) => i !== index);
       } else if (index === -1) {
-        // Add new item at the beginning
         return [newItem, ...array];
       } else {
-        // Update item at index
         return array.map((item, i) => (i === index ? newItem : item));
       }
     };
 
     const updateAssumptions = (array, index, newItem) => {
       if (newItem === undefined || newItem === null) {
-        // Delete item at index
         return array.filter((_, i) => i !== index);
       } else if (index === -1) {
-        // Add new item at beginning
         return [newItem, ...array];
       } else {
-        // Update item at index
         return array.map((item, i) => (i === index ? newItem : item));
       }
     };
@@ -222,10 +213,9 @@ export const ThreatModel = ({ user }) => {
         setIteration(retry);
 
         if (currentStatus === "COMPLETE") {
-          // Stop polling first
           clearInterval(intervalId);
 
-          setLoading(true); // Set loading once
+          setLoading(true);
           try {
             const resultsResponse = await getThreatModelingResults(id);
             const architectureDiagram = await getDownloadUrl(resultsResponse.data.item.s3_location);
@@ -353,7 +343,6 @@ export const ThreatModel = ({ user }) => {
     }
   }, [response]);
 
-
   return (
     <>
       <SpaceBetween size="s">
@@ -394,7 +383,7 @@ export const ThreatModel = ({ user }) => {
                       setVisible(true);
                     }
                     if (itemClickDetails.detail.id === "tr") {
-                      handleHelpButtonClick(<InfoContent context={"All"} />)
+                      handleHelpButtonClick(<InfoContent context={"All"} />);
                     }
                   }}
                   items={[
@@ -472,20 +461,20 @@ export const ThreatModel = ({ user }) => {
               )}
               {alert.visible && alert.state === "ErrorThreatModeling" && (
                 <div style={{ width: "80%", marginTop: "200px" }}>
-                <Alert
-                  statusIconAriaLabel={"Error"}
-                  type={"error"}
-                  action={
+                  <Alert
+                    statusIconAriaLabel={"Error"}
+                    type={"error"}
+                    action={
                       <Button onClick={() => navigate("/")}>
                         {alertMessages[alert.state].button}
                       </Button>
-                  }
-                  header={alertMessages[alert.state].title}
-                >
-                  {alertMessages[alert.state].msg}
-                </Alert>
+                    }
+                    header={alertMessages[alert.state].title}
+                  >
+                    {alertMessages[alert.state].msg}
+                  </Alert>
                 </div>
-                )}
+              )}
             </div>
           </>
         )}

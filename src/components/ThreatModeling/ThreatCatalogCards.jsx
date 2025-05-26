@@ -17,7 +17,6 @@ import {
   deleteTm,
 } from "../../services/ThreatDesigner/stats";
 
-
 const StatusIndicatorComponent = ({ status }) => {
   switch (status) {
     case "COMPLETE":
@@ -29,7 +28,7 @@ const StatusIndicatorComponent = ({ status }) => {
     case "LOADING":
       return (
         <SpaceBetween alignItems="center">
-            <Spinner />
+          <Spinner />
         </SpaceBetween>
       );
     default:
@@ -66,6 +65,7 @@ const StatusComponponent = ({ id }) => {
 export const ThreatCatalogCardsComponent = ({ user }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const removeItem = (idToRemove) => {
     setResults(results.filter((item) => item.job_id !== idToRemove));
@@ -77,10 +77,9 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
       try {
         const results = await getThreatModelingAllResults();
         const sortedCatalogs = results?.data?.catalogs.sort((a, b) => {
-          // Check if timestamp exists for both items
           if (!a.timestamp && !b.timestamp) return 0;
-          if (!a.timestamp) return 1; // Push items without timestamp to the end
-          if (!b.timestamp) return -1; // Push items without timestamp to the end
+          if (!a.timestamp) return 1;
+          if (!b.timestamp) return -1;
 
           return new Date(b.timestamp) - new Date(a.timestamp);
         });
@@ -98,25 +97,26 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
   const navigate = useNavigate();
 
   const handleDelete = async (id) => {
+    setDeletingId(id);
     try {
       const results = await deleteTm(id);
       removeItem(id);
     } catch (error) {
       console.error("Error deleting threat model:", error);
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  // Create a grid definition based on the number of items
   const createGridDefinition = () => {
-    // Create a grid with 2 columns
     const gridDefinition = [];
-    
+
     results.forEach(() => {
       gridDefinition.push({
-        colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 }
+        colspan: { default: 12, xxs: 12, xs: 12, s: 12, m: 6, l: 6, xl: 6 },
       });
     });
-    
+
     return gridDefinition;
   };
 
@@ -132,98 +132,130 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
           <Grid gridDefinition={createGridDefinition()}>
             {results.map((item) => (
               <div key={item.job_id} style={{ height: 250 }}>
-                <Container 
-                  key={item.job_id}
-                  media={{
-                    content: <S3DownloaderComponent fileName={item?.s3_location} />,
-                    position: "side",
-                    width: "40%"
-                  }}
-                  fitHeight
-                  header={
-                    <Header
-                      variant="h2"
-                      actions={
-                        <ButtonDropdown
-                          onItemClick={(itemClickDetails) => {
-                            if (itemClickDetails.detail.id === "delete") {
-                              handleDelete(item.job_id);
-                            }
-                          }}
-                          items={[{ id: "delete", text: "Delete", disabled: false }]}
-                          variant="icon"
-                        />
-                      }
-                      style={{ width: '100%', overflow: 'hidden' }}
+                {deletingId === item.job_id ? (
+                  <Container fitHeight>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        height: "100%",
+                      }}
                     >
-                        <Link 
-                          fontSize="heading-m" 
-                          onFollow={() => navigate(`/${item.job_id}`)}
-                        >
+                      <Spinner size="large" />
+                    </div>
+                  </Container>
+                ) : (
+                  <Container
+                    key={item.job_id}
+                    media={{
+                      content: <S3DownloaderComponent fileName={item?.s3_location} />,
+                      position: "side",
+                      width: "40%",
+                    }}
+                    fitHeight
+                    header={
+                      <Header
+                        variant="h2"
+                        actions={
+                          <ButtonDropdown
+                            onItemClick={(itemClickDetails) => {
+                              if (itemClickDetails.detail.id === "delete") {
+                                handleDelete(item.job_id);
+                              }
+                            }}
+                            items={[{ id: "delete", text: "Delete", disabled: false }]}
+                            variant="icon"
+                          />
+                        }
+                        style={{ width: "100%", overflow: "hidden" }}
+                      >
+                        <Link fontSize="heading-m" onFollow={() => navigate(`/${item.job_id}`)}>
                           {item?.title || "Untitled"}
                         </Link>
-                    </Header>
-                  }
-                >
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    height: '100%', 
-                    justifyContent: 'space-between'
-                  }}>
-                    <div style={{ 
-                      flex: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                      padding: '0 0 10px 0'
-                    }}>
-                      <Box 
-                        variant="small" 
-                        color="text-body-secondary"
+                      </Header>
+                    }
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        height: "100%",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div
                         style={{
-                          overflow: 'hidden',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: 'vertical',
-                          textOverflow: 'ellipsis'
+                          flex: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
+                          padding: "0 0 10px 0",
                         }}
                       >
-                        {item?.summary || "No summary available"}
-                      </Box>
-                    </div>
+                        <Box
+                          variant="small"
+                          color="text-body-secondary"
+                          style={{
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {item?.summary || "No summary available"}
+                        </Box>
+                      </div>
 
-                    <div>
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'flex-start',
-                        width: '100%'
-                      }}>    
-                        <div>
-                          <Box variant="awsui-key-label">Status</Box>
-                          <StatusComponponent id={item?.job_id} />
-                        </div>                    
-                        <div>
-                          <Box variant="awsui-key-label" textAlign="left">Threats</Box>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <SpaceBetween direction="horizontal" size="xs">
-                              <Badge color="severity-high">
-                                {item?.threatCounts?.high || "-"}
-                              </Badge>
-                              <Badge color="severity-medium">
-                                {item?.threatCounts?.medium || "-"}
-                              </Badge>
-                              <Badge color="severity-low">
-                                {item?.threatCounts?.low || "-"}
-                              </Badge>
-                            </SpaceBetween>
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            width: "100%",
+                          }}
+                        >
+                          <div>
+                            <Box variant="awsui-key-label">Status</Box>
+                            <StatusComponponent id={item?.job_id} />
+                          </div>
+                          <div>
+                            <Box variant="awsui-key-label" textAlign="left">
+                              Threats
+                            </Box>
+                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                              <SpaceBetween direction="horizontal" size="xs">
+                                <Badge color="severity-high">
+                                  {item?.threat_list?.threats
+                                    ? item.threat_list.threats.filter(
+                                        (threat) => threat.likelihood === "High"
+                                      ).length || "-"
+                                    : "-"}
+                                </Badge>
+                                <Badge color="severity-medium">
+                                  {item?.threat_list?.threats
+                                    ? item.threat_list.threats.filter(
+                                        (threat) => threat.likelihood === "Medium"
+                                      ).length || "-"
+                                    : "-"}
+                                </Badge>
+                                <Badge color="severity-low">
+                                  {item?.threat_list?.threats
+                                    ? item.threat_list.threats.filter(
+                                        (threat) => threat.likelihood === "Low"
+                                      ).length || "-"
+                                    : "-"}
+                                </Badge>
+                              </SpaceBetween>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Container>
+                  </Container>
+                )}
               </div>
             ))}
           </Grid>
@@ -237,5 +269,4 @@ export const ThreatCatalogCardsComponent = ({ user }) => {
       </div>
     </SpaceBetween>
   );
-
 };

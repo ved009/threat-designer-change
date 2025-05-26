@@ -16,13 +16,13 @@ export async function makeApiCall(
   endpoint,
   payload = {},
   axiosOptions = {},
-  signal = null // Add optional signal parameter
+  signal = null
 ) {
   const url = config.controlPlaneAPI + endpoint;
   const defaultOptions = {
     withCredentials: true,
     ...axiosOptions,
-    ...(signal && { signal }), // Add signal to options if provided
+    ...(signal && { signal }),
   };
 
   try {
@@ -40,7 +40,6 @@ export async function makeApiCall(
     }
   } catch (err) {
     if (axios.isCancel(err)) {
-      // Handle cancelled request
       throw err;
     }
     await validateUser();

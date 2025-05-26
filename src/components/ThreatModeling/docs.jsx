@@ -3,23 +3,18 @@ import { Packer } from "docx";
 
 export const downloadDocument = async (doc, title) => {
   try {
-    // Generate blob from the document
     const blob = await Packer.toBlob(doc);
 
-    // Create a URL for the blob
     const url = window.URL.createObjectURL(blob);
 
-    // Create a temporary link element
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${title}.docx`; // Name of the file to be downloaded
+    link.download = `${title}.docx`;
 
-    // Append link to body, click it, and remove it
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    // Clean up the URL
     window.URL.revokeObjectURL(url);
   } catch (error) {
     console.error("Download failed:", error);

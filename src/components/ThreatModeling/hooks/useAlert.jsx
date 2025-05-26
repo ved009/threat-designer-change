@@ -19,8 +19,8 @@ const ALERT_MESSAGES = {
     title: "Error processing your request",
     msg: "An error occurred while processing the threat model.",
     button: "Start new threat model",
-  }
-}
+  },
+};
 
 export const useAlert = () => {
   const [alert, setAlert] = useState({

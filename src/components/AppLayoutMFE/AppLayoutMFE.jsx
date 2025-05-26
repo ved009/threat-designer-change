@@ -3,7 +3,7 @@ import { AppLayout, SplitPanel } from "@cloudscape-design/components";
 import Main from "../../Main";
 import "@cloudscape-design/global-styles/index.css";
 import { useSplitPanel } from "../../SplitPanelContext";
-import { useLocation } from "react-router-dom"; // Import useLocation from react-router-dom
+import { useLocation } from "react-router-dom";
 
 const appLayoutLabels = {
   navigation: "Side navigation",
@@ -14,12 +14,11 @@ const appLayoutLabels = {
 function AppLayoutMFE({ user }) {
   const [navOpen, setNavOpen] = useState(true);
   const { splitPanelOpen, setSplitPanelOpen, splitPanelContext } = useSplitPanel();
-  const location = useLocation(); // Get the current location
+  const location = useLocation();
 
-  // Effect to close split panel on route change
   useEffect(() => {
     setSplitPanelOpen(false);
-  }, [location.pathname, setSplitPanelOpen]); // Dependency on location.pathname
+  }, [location.pathname, setSplitPanelOpen]);
 
   const RenderSplitPanelContent = () => {
     if (splitPanelContext?.content) {

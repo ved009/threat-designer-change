@@ -44,10 +44,8 @@ def initialize_models(
     reasoning: int = 0,
 ) -> Dict[str, ChatBedrockConverse]:
     """
-    Initialize four different main models with different clients and one structured model.
-
     This function creates multiple Bedrock model clients.
-    It sets up main models with optional reasoning capabilities and a structured model.
+    It sets up a main model with optional reasoning capabilities, a structured model and a summary model.
 
     Args:
         reasoning (int): Level to enable/disable reasoning capabilities for main models.
@@ -62,6 +60,7 @@ def initialize_models(
     # Parse model configurations from environment
     model_main = json.loads(os.environ.get("MAIN_MODEL", "{}"))
     model_struct = json.loads(os.environ.get("MODEL_STRUCT", "{}"))
+    model_summary = json.loads(os.environ.get("MODEL_SUMMARY", "{}"))
     reasoning_models = json.loads(os.environ.get("REASONING_MODELS", "[]"))
 
     # Base configuration for main model with default client
@@ -94,7 +93,17 @@ def initialize_models(
         "stop": ["Human:", "User:", "Assistant:", "\nAI:"],
     }
 
+    summary_model_config = {
+        "client": bedrock_runtime,
+        "region_name": region,
+        "max_tokens": model_summary.get("max_tokens"),
+        "model_id": model_summary.get("id"),
+        "temperature": 0,
+        "stop": ["Human:", "User:", "Assistant:", "\nAI:"],
+    }
+
     return {
         "main_model": ChatBedrockConverse(**main_model_config),
         "struct_model": ChatBedrockConverse(**struct_model_config),
+        "summary_model": ChatBedrockConverse(**summary_model_config)
     }

@@ -79,8 +79,6 @@ const TextAreaComponent = ({ onChange, value }) => {
                   { id: "delete", text: "Delete", disabled: false },
                 ],
               },
-              // { id: "annotate", text: "Annotate", disabled: false },
-              // {}
             ]}
             ariaLabel="Options"
             variant="icon"
@@ -93,28 +91,6 @@ const TextAreaComponent = ({ onChange, value }) => {
           )}
         </SpaceBetween>
       </div>
-      {/* 
-            {isVisible && position && (
-                <div 
-                    className="textarea-container" 
-                    ref={containerRef}
-                    style={{
-                        position: 'fixed',
-                        top: `${position.top}px`,
-                        left: `${position.left}px`
-                    }}
-                >
-                    <SpaceBetween size="xxxs">
-                    <Button iconName="close" variant="icon" onClick={() => setIsVisible(false)}/>
-                    <Textarea
-                        onChange={({ detail }) => onChange(detail.value)}
-                        value={value()}
-                        rows={4}
-                        placeholder="Start typing..."
-                    />
-                    </SpaceBetween>
-                </div>
-            )} */}
       <Modal
         onDismiss={() => setIsVisible(false)}
         visible={isVisible}

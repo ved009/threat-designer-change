@@ -49,7 +49,7 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, toggleColorMode }) {
                     display: "flex",
                     alignItems: "center",
                     gap: "12px",
-                    marginRight: "60px", // Increased margin to create more separation
+                    marginRight: "60px",
                   }}
                 >
                   <a href="/" style={{ textDecoration: "none" }}>
@@ -120,12 +120,11 @@ function TopNavigationMFE({ user, setAuthUser, colorMode, toggleColorMode }) {
               iconName: "user-profile",
               items: profileActions,
 
-              // In the TopNavigation component
               onItemClick: ({ detail }) => {
                 switch (detail.id) {
                   case "signout":
                     logOut().then(() => {
-                      setAuthUser(null); // Update the auth state after logout
+                      setAuthUser(null);
                     });
                     break;
                   default:

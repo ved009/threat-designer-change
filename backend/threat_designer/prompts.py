@@ -10,6 +10,12 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
+def summary_prompt() -> str:
+    return """<instruction>
+Use the information provided by the user to generate a short headline summary of max 40 words.
+</instruction> \n
+    """
+
 
 def asset_prompt() -> str:
     return """<instruction>

@@ -14,9 +14,9 @@ from langchain_core.messages.human import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
 from langgraph.types import Command
-from prompts import (asset_prompt, flow_prompt, gap_prompt,
+from prompts import (summary_prompt, asset_prompt, flow_prompt, gap_prompt,
                      threats_improve_prompt, threats_prompt)
-from state import (AgentState, AssetsList, ContinueThreatModeling, FlowsList,
+from state import (SummaryState, AgentState, AssetsList, ContinueThreatModeling, FlowsList,
                    ThreatsList)
 from typing_extensions import TypedDict
 from utils import (create_dynamodb_item, handle_asset_error, update_job_state,
@@ -56,15 +56,44 @@ human_structure = HumanMessage(
 )
 
 
-def image_to_base64(state: AgentState) -> Dict[str, str]:
-    """Convert image data from state to base64 format.
+def image_to_base64(state: AgentState, config: RunnableConfig) -> Dict[str, str]:
+    """Convert image data from state to base64 format and generates a short summary.
 
     Args:
         state: Current agent state containing image data
+        config: Configuration for the runnable
 
     Returns:
-        Dictionary containing base64 encoded image data
+        Dictionary containing base64 encoded image data and optionally summary
     """
+    
+    if not state.get("summary", None):
+        configurable = config.get("configurable", {})
+        model_summary = configurable.get("model_summary")
+        tools = [SummaryState]
+
+        content = [
+            {"type": "text", "text": "Generate a short headline summary of max 40 words this architecture using the diagram and description if available"},
+            {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{state["image_data"]}"},
+            },
+            {"type": "text", "text": f"<description>{state.get("description", "")}</description>"}
+        ]
+        human_message = HumanMessage(content=content)
+        summary_message = [summary_prompt(), human_message]
+
+        # Configure model based on reasoning requirement
+        model_with_tools = model_summary.bind_tools(tools)
+
+        # Process response
+        response = model_with_tools.invoke(summary_message)
+        response = SummaryState(**response.tool_calls[0]["args"])
+        return {
+            "image_data": state["image_data"],
+            "summary": response.summary
+            }
+    
     return {"image_data": state["image_data"]}
 
 

@@ -13,12 +13,10 @@ import {
   ImageRun,
 } from "docx";
 
-
 const addArchitectureDiagram = async (base64Data, children) => {
   if (!base64Data) return;
-  
+
   try {
-    // Add section title
     children.push(
       new Paragraph({
         text: "Architecture Diagram",
@@ -27,40 +25,31 @@ const addArchitectureDiagram = async (base64Data, children) => {
       })
     );
 
-    // Skip image processing if no data
     if (!base64Data) {
       return;
     }
-
-    // Process the base64 data
     let imageData = base64Data;
     if (typeof base64Data === "object" && base64Data?.value) {
       imageData = base64Data.value;
     }
-    
-    // Remove data URI prefix if present
+
     if (typeof imageData === "string" && imageData.includes("base64,")) {
       imageData = imageData.split("base64,")[1];
     }
-    
-    // Create binary buffer from base64 - FIXED VERSION
+
     try {
-      // Use Buffer in Node.js environment or Uint8Array in browser
       let buffer;
-      
-      if (typeof Buffer !== 'undefined') {
-        // Node.js environment
-        buffer = Buffer.from(imageData, 'base64');
+
+      if (typeof Buffer !== "undefined") {
+        buffer = Buffer.from(imageData, "base64");
       } else {
-        // Browser environment
         const binaryString = atob(imageData);
         buffer = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           buffer[i] = binaryString.charCodeAt(i);
         }
       }
-      
-      // Add image with proper configuration
+
       children.push(
         new Paragraph({
           children: [
@@ -70,7 +59,6 @@ const addArchitectureDiagram = async (base64Data, children) => {
                 width: 400,
                 height: 300,
               },
-              // Add these properties for better compatibility
               altText: "Architecture Diagram",
               description: "System Architecture Diagram",
             }),
@@ -188,7 +176,6 @@ const createThreatModelingDocument = async (
   });
 
   try {
-    // Main content for portrait orientation
     const mainChildren = [
       new Paragraph({
         text: title,
@@ -197,12 +184,10 @@ const createThreatModelingDocument = async (
       }),
     ];
 
-    // Add architecture diagram with simplified handling
     if (architectureDiagramBase64) {
       await addArchitectureDiagram(architectureDiagramBase64, mainChildren);
     }
 
-    // Description
     if (description?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -211,25 +196,21 @@ const createThreatModelingDocument = async (
           spacing: { before: 200, after: 100 },
         })
       );
-      
-      // Split the description by line breaks
-      const paragraphs = description.split('\n');
-      
-      // Create a separate paragraph for each line, preserving spaces
-      paragraphs.forEach(paragraph => {
+
+      const paragraphs = description.split("\n");
+
+      paragraphs.forEach((paragraph) => {
         mainChildren.push(
           new Paragraph({
-            text: paragraph, 
-            spacing: { before: 60, after: 60 }
+            text: paragraph,
+            spacing: { before: 60, after: 60 },
           })
         );
       });
-      
+
       mainChildren.push(spacer);
     }
-    
 
-    // Assumptions section
     if (assumptions?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -242,7 +223,6 @@ const createThreatModelingDocument = async (
       );
     }
 
-    // Assets Section
     if (assets?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -255,7 +235,6 @@ const createThreatModelingDocument = async (
       );
     }
 
-    // Data Flow Section
     if (dataFlowData?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -268,7 +247,6 @@ const createThreatModelingDocument = async (
       );
     }
 
-    // Trust Boundary Section
     if (trustBoundaryData?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -281,7 +259,6 @@ const createThreatModelingDocument = async (
       );
     }
 
-    // Threat Source Section
     if (threatSourceData?.length > 0) {
       mainChildren.push(
         new Paragraph({
@@ -294,16 +271,13 @@ const createThreatModelingDocument = async (
       );
     }
 
-    // Create document sections
     const sections = [];
-    
-    // Add main content in portrait orientation
+
     sections.push({
-      properties: {},  // Default is portrait
-      children: mainChildren
+      properties: {},
+      children: mainChildren,
     });
-    
-    // Add threat catalog in landscape orientation
+
     if (threatCatalogData?.length > 0) {
       const threatCatalogSection = {
         properties: {
@@ -337,7 +311,6 @@ const createThreatModelingDocument = async (
       sections.push(threatCatalogSection);
     }
 
-    // Create document with our sections
     const doc = new Document({
       sections: sections,
       styles: {
