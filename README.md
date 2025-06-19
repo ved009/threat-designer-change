@@ -4,6 +4,9 @@
 
 # Threat Designer: AI-powered threat modeling for secure system design
 
+
+>  Check the blogpost: [Accelerate threat modeling with generative AI](https://aws.amazon.com/blogs/machine-learning/accelerate-threat-modeling-with-generative-ai/) for an in-depth overview of the solution.
+
 ### Architecture diagram
 
 ![solutions_diagram](/assets/threat_designer_arch.png)

@@ -105,5 +105,5 @@ def initialize_models(
     return {
         "main_model": ChatBedrockConverse(**main_model_config),
         "struct_model": ChatBedrockConverse(**struct_model_config),
-        "summary_model": ChatBedrockConverse(**summary_model_config)
+        "summary_model": ChatBedrockConverse(**summary_model_config),
     }

@@ -5,10 +5,14 @@ from typing import Annotated, List, Literal, Optional, TypedDict
 
 from langchain_core.pydantic_v1 import BaseModel, Field
 
+
 class SummaryState(BaseModel):
     """Model representing the summary of a threat catalog."""
 
-    summary: Annotated[str, Field(description="A short headline summary of max 40 words")]
+    summary: Annotated[
+        str, Field(description="A short headline summary of max 40 words")
+    ]
+
 
 class Assets(BaseModel):
     """Model representing system assets or entities in threat modeling."""

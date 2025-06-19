@@ -18,7 +18,7 @@ const ALERT_MESSAGES = {
   ErrorThreatModeling: {
     title: "Error processing your request",
     msg: "An error occurred while processing the threat model.",
-    button: "Start new threat model",
+    button: "Restore previous version",
   },
 };
 

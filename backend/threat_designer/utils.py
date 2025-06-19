@@ -9,10 +9,10 @@ import decimal
 import os
 import traceback
 from datetime import datetime, timezone
-from typing import (Any, Callable, Dict, List, Optional, ParamSpec, TypeVar,
-                    Union)
+from typing import Any, Callable, Dict, List, Optional, ParamSpec, TypeVar, Union
 
 import boto3
+import copy
 from aws_lambda_powertools import Logger
 from botocore.exceptions import ClientError
 from langchain_aws import ChatBedrockConverse
@@ -269,6 +269,40 @@ def create_dynamodb_item(agent_state: AgentState, table_name: str) -> None:
         logger.error(f"Error: {e}\n{stack_trace}")
         raise
 
+def update_item_with_backup(job_id: str, table_name: str) -> None:
+    """
+    Retrieves a DynamoDB item by job_id, adds or updates a backup field containing
+    all item data, and saves the updated item back to the table.
+    
+    Args:
+        job_id: The primary key of the item to update
+        table_name: The name of the DynamoDB table
+    """
+    dynamodb = boto3.resource("dynamodb")
+    table = dynamodb.Table(table_name)
+    
+    try:
+        response = table.get_item(Key={"job_id": job_id})
+        
+        if "Item" not in response:
+            logger.error(f"Item with job_id {job_id} not found in table {table_name}")
+            return
+        
+        item = response["Item"]
+        backup_data = copy.deepcopy(item)
+        
+        if "backup" in backup_data:
+            del backup_data["backup"]
+        item["backup"] = backup_data
+        
+        response = table.put_item(Item=item)
+        logger.info(f"Item {job_id} updated with backup successfully")
+        
+    except Exception as e:
+        stack_trace = traceback.format_exc()
+        logger.error(f"Error updating item with backup: {e}\n{stack_trace}")
+        raise
+
 
 def fetch_results(job_id: str, table_name: str) -> Dict[str, Any]:
     dynamodb = boto3.resource("dynamodb")
@@ -283,7 +317,7 @@ def fetch_results(job_id: str, table_name: str) -> Dict[str, Any]:
                 "state": "Found",
                 "item": convert_decimals(
                     response["Item"]
-                ),  # Convert Decimals before returning
+                ),
             }
         else:
             return {"job_id": job_id, "state": "Not Found", "item": None}
@@ -316,10 +350,8 @@ def handle_asset_error(
             except Exception as e:
                 logger.error(f"An error occurred: {e}")
                 if thinking:
-                    # When thinking=True, call the _retry function
                     return _retry(model, response, struct)
                 else:
-                    # When thinking=False, let the original error raise
                     raise e
 
         return wrapper

@@ -14,13 +14,30 @@ from langchain_core.messages.human import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.graph import END, StateGraph
 from langgraph.types import Command
-from prompts import (summary_prompt, asset_prompt, flow_prompt, gap_prompt,
-                     threats_improve_prompt, threats_prompt)
-from state import (SummaryState, AgentState, AssetsList, ContinueThreatModeling, FlowsList,
-                   ThreatsList)
+from prompts import (
+    summary_prompt,
+    asset_prompt,
+    flow_prompt,
+    gap_prompt,
+    threats_improve_prompt,
+    threats_prompt,
+)
+from state import (
+    SummaryState,
+    AgentState,
+    AssetsList,
+    ContinueThreatModeling,
+    FlowsList,
+    ThreatsList,
+)
 from typing_extensions import TypedDict
-from utils import (create_dynamodb_item, handle_asset_error, update_job_state,
-                   update_trail)
+from utils import (
+    create_dynamodb_item,
+    handle_asset_error,
+    update_job_state,
+    update_trail,
+    update_item_with_backup
+)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -29,7 +46,6 @@ logger.setLevel(logging.INFO)
 AGENT_TABLE = os.environ.get("AGENT_STATE_TABLE")
 MODEL = os.environ.get("MODEL")
 MAX_RETRY = 15
-
 
 class ConfigSchema(TypedDict):
     """Configuration schema for the workflow.
@@ -66,19 +82,24 @@ def image_to_base64(state: AgentState, config: RunnableConfig) -> Dict[str, str]
     Returns:
         Dictionary containing base64 encoded image data and optionally summary
     """
-    
     if not state.get("summary", None):
         configurable = config.get("configurable", {})
         model_summary = configurable.get("model_summary")
         tools = [SummaryState]
 
         content = [
-            {"type": "text", "text": "Generate a short headline summary of max 40 words this architecture using the diagram and description if available"},
+            {
+                "type": "text",
+                "text": "Generate a short headline summary of max 40 words this architecture using the diagram and description if available",
+            },
             {
                 "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{state["image_data"]}"},
+                "image_url": {"url": f"data:image/jpeg;base64,{state['image_data']}"},
             },
-            {"type": "text", "text": f"<description>{state.get("description", "")}</description>"}
+            {
+                "type": "text",
+                "text": f"<description>{state.get('description', '')}</description>",
+            },
         ]
         human_message = HumanMessage(content=content)
         summary_message = [summary_prompt(), human_message]
@@ -89,11 +110,8 @@ def image_to_base64(state: AgentState, config: RunnableConfig) -> Dict[str, str]
         # Process response
         response = model_with_tools.invoke(summary_message)
         response = SummaryState(**response.tool_calls[0]["args"])
-        return {
-            "image_data": state["image_data"],
-            "summary": response.summary
-            }
-    
+        return {"image_data": state["image_data"], "summary": response.summary}
+
     return {"image_data": state["image_data"]}
 
 
@@ -170,7 +188,6 @@ def define_assets(state: AgentState, config: RunnableConfig):
 
     # Process response
     response = model_with_tools.invoke(struct_message)
-
     # Update trail if reasoning is enabled
     if reasoning and response.content and len(response.content) > 0:
         reasoning_text = response.content[0].get("reasoning_content", {}).get("text")
@@ -234,7 +251,6 @@ def define_flows(state: AgentState, config: RunnableConfig):
 
     # Process response
     response = model_with_tools.invoke(struct_message)
-
     # Update trail if reasoning is enabled
     if reasoning and response.content and len(response.content) > 0:
         reasoning_text = response.content[0].get("reasoning_content", {}).get("text")
@@ -480,6 +496,7 @@ def finalize(state: AgentState):
     Returns:
         Command to end workflow
     """
+
     try:
         update_job_state(state["job_id"], "FINALIZE")
         create_dynamodb_item(state, AGENT_TABLE)
@@ -502,6 +519,7 @@ def route_replay(state: AgentState):
     """
     if state.get("replay", False):
         update_trail(job_id=state["job_id"], threats=[], gaps=[], flush=0)
+        update_item_with_backup(state["job_id"], AGENT_TABLE)
         try:
             return "replay"
         except Exception as e:

@@ -10,6 +10,7 @@ Each function generates specialized prompts for different phases of the threat m
 - Response structuring
 """
 
+
 def summary_prompt() -> str:
     return """<instruction>
 Use the information provided by the user to generate a short headline summary of max 40 words.
@@ -79,148 +80,211 @@ Consider the following information provided:
 
 
 def gap_prompt(gap, assets, system_architecture) -> str:
-    return f"""<task_description>
-You are an expert in Security, AWS, and Threat Modeling, tasked with validating the comprehensiveness of a provided threat catalog for a given architecture. Your role is to assess the threat model and ensure it covers all relevant aspects, including:
-</task_description>
-
-<assessment_criteria>
-1. Comprehensive coverage of both technology-specific threats and fundamental security principles applicable universally.
-2. Proper mapping of threats to identified threat actors using an attacker-centric approach.
-3. Balance between concrete technical mitigations and broader security concepts that remain relevant regardless of the technology stack.
-4. Completeness across all potential attack vectors, not just those specific to certain technologies or components.
-</assessment_criteria>
+    return f"""
+<task>
+You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to validate the comprehensiveness of a provided threat catalog for a given architecture. You'll assess the threat model against the STRIDE framework and identify any gaps in coverage, ensuring the threat catalog reflects plausible threats grounded in the described architecture and context.
+</task>
 
 <instructions>
-1. Carefully review the provided information:
-   - <identified_assets_and_entities>{assets}</identified_assets_and_entities>
-   - <data_flow>{system_architecture}</data_flow>
-   - <threats>Threat Catalog</threats>
 
-2. If a <solution_description> is provided, consider the described solution and the <assumptions> established, as they define the security context and boundaries for analysis.
+1. Review the inputs carefully:
 
-3. If a previous <gap> analysis is available, take it into account when assessing the <threats> catalog.
+   * <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
+   * <data_flow>{system_architecture}</data_flow>: Descriptions of data movements between components.
+   * <threats>Threat Catalog</threats>: The existing threat catalog to be assessed.
+   * <solution_description>: Contextual overview of the system (if provided).
+   * <assumptions>: Security assumptions and boundary considerations (if provided).
+   * <previous_gap>{gap}</previous_gap>: Previous gap analysis, if available.
 
-<previous_gap>
-{gap}
-</previous_gap>
+2. Assessment criteria and framework:
 
-4. Think critically and analyze the architecture, identified assets and entities, data flow, and threats.
+   * Use the **STRIDE model** as your assessment framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * Ensure threats are **plausible and grounded** in the described architecture, avoiding speculative or unrealistic scenarios.
+   * Check for **comprehensive coverage** of both technology-specific threats and fundamental security principles.
+   * Verify proper **mapping of threats to identified threat actors** using an attacker-centric approach.
+   * Assess **balance between concrete technical mitigations** and broader security concepts.
+   * Evaluate **completeness across all potential attack vectors**, not just technology-specific ones.
 
-5. Evaluate whether the <threats> catalog meets the assessment criteria outlined above.
+3. Gap analysis approach:
 
-6. Provide your analysis and recommendations for improving the threat catalog's comprehensiveness, if necessary.
+   * For each asset or entity, verify coverage across all relevant STRIDE categories.
+   * For each data flow, confirm threats to data in transit and between trust boundaries are addressed.
+   * Cross-reference assumptions — ensure threats respect the stated security context and boundaries.
+   * Identify any missing threat scenarios that would be plausible given the architecture.
+
+4. Format your gap analysis as follows:
+
+   Gap Analysis Summary:
+   [Overall assessment of the threat catalog's completeness and quality]
+
+   Identified Gaps:
+   
+   Gap 1: [Clear description of the missing coverage]
+   - STRIDE Category: [Relevant category]
+   - Affected Assets/Flows: [Specific components affected]
+   - Recommendation: [How to address this gap]
+   
+   Gap 2: [Clear description of the missing coverage]
+   ...
+
+5. Quality control checklist:
+
+   * [ ] Have all assets been assessed against all relevant STRIDE categories?
+   * [ ] Are all data flows properly threat-modeled?
+   * [ ] Do the threats respect the stated assumptions and boundaries?
+   * [ ] Is there appropriate balance between technology-specific and fundamental threats?
+   * [ ] Are the identified gaps based on plausible attack scenarios?
+   * [ ] Do recommendations for addressing gaps include practical and relevant mitigations?
+
+6. Final recommendations:
+   
+   * Provide actionable guidance on how to improve the threat catalog's comprehensiveness.
+   * Suggest any methodological improvements for future threat modeling efforts.
+
+7. Decision on threat catalog completeness:
+
+   After conducting your analysis, you must make one of two decisions:
+     
+     A. If you have identified any gaps in the threat catalog:
+        - Set "stop" to FALSE
+        - Provide a detailed gap analysis in the "gap" field using the format in section 4
+        - Focus on the most critical or significant gap first
+        - Be specific and actionable in your recommendations
+     
+     B. If the threat catalog is comprehensive and complete:
+        - Set "stop" to TRUE
+        - No gap analysis is required
+        - Briefly explain why you believe the catalog is comprehensive
+
+   Your assessment should be thorough and methodical - do not rush to declare the catalog complete unless you have systematically verified coverage across all assets, data flows, and STRIDE categories.
 </instructions>
     """
 
 
 def threats_improve_prompt(gap, threat_list, assets, flows) -> str:
-    return f"""<task>
-You are an expert in Security, AWS, and Threat Modeling. Your role is to enrich an existing threat catalog by identifying new threats that may have been missed, as part of a team working on threat modeling for a given architecture.
+    return f"""
+<task>
+You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to enrich an existing threat catalog by identifying new threats that may have been missed, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
 </task>
 
 <instructions>
-1. Review the provided information:
-- <gap>{gap}</gap>: Leverage any gap analysis information to improve the threat catalog.
-- <threats>{threat_list}</threats>: The existing threat catalog.
-- <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Identified assets and entities in the architecture.
-- <data_flow>{flows}</data_flow>: Data flow information.
-- <solution_description>: Description of the solution (if provided).
-- <assumptions>: Assumptions about the security context and boundaries (if provided).
+1.Review the inputs carefully:
 
-2. Analyze the architecture, identified assets and entities, data flow, and existing threats carefully.
+   * <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Inventory of key assets and entities in the architecture.
+   * <data_flow>{flows}</data_flow>: Descriptions of data movements between components.
+   * <solution_description>: Contextual overview of the system (if provided).
+   * <assumptions>: Security assumptions and boundary considerations (if provided).
+   * <threats>{threat_list}</threats>: The existing threat catalog to be enhanced.
+   * <gap>{gap}</gap>: Leverage any gap analysis information to improve the threat catalog.
 
-3. Identify any new relevant threats that may have been missed in the existing threat catalog.
+2. Threat modeling scope and realism constraints:
 
-4. When describing new threats, follow these guidelines:
-- Ensure the threat description is exhaustive, with 35-50 words.
-- Use the provided <threat_grammar> structure:
-<threat_grammar>
-[threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
-</threat_grammar>
+   * Use the **STRIDE model** as your framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
+   * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
+   * For each threat, describe **why it is feasible** in the context of the architecture.
+   * Focus on identifying **new** relevant threats that may have been missed in the existing catalog.
 
-5. Consider the STRIDE model for each identified asset and entity:
-- S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
-- T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
-- R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
-- I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
-- D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
-- E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
+3. Use this grammar template for each threat:
 
-6. Provide new threats in the specified <output_format>, including threat name, STRIDE category, description, target, impact, likelihood, and mitigations.
-<output_format>
-Threat Name: [Threat Name]
-STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
-Description: [description of the threat]
-Target: [What asset or component is being targeted]
-Impact: [Potential consequences if the threat is realized]
-Likelihood: [Estimated probability of occurrence: Low/Medium/High]
-Mitigations:
-1. [Mitigation strategy 1]
-....
-N. [Mitigation strategy N]
-</output_format>
+   <threat_grammar>
+   [threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
+   </threat_grammar>
 
-7. When creating threat models, ensure comprehensive coverage by:
-- Thinking like an attacker and identifying both technology-specific threats and fundamental security principles that apply universally.
-- Providing an exhaustive list of threats mapped to identified threat actors and data flows.
-- Balancing concrete technical mitigations with broader security concepts that remain relevant regardless of the underlying technology stack or application type.
-</instructions>
-        """
+   Be exhaustive but grounded. Maximize detail without assuming undefined components or unprovided context.
 
+4. Format each threat as follows:
 
-def threats_prompt(assets, flows) -> str:
-    return f"""<task>
-You are an expert in Security, AWS, and Threat Modeling. Your task is to generate a comprehensive list of threats for a given architecture by analyzing the provided information and following the specified output format. You are part of a team of assistants whose overall goal is to perform threat modeling on a given architecture. Your specific role is to leverage the information provided by your peers in the following sections
-</task>
+   Threat Name: [Clear descriptive title]  
+   STRIDE Category: [Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege]  
+   Description: [Use <threat_grammar>; ensure 35–50 words; technically realistic]  
+   Target: [Specific asset or component]  
+   Impact: [Consequences if threat is realized]  
+   Likelihood: [Low | Medium | High — based on feasibility and context]  
+   Mitigations:  
+   1. [Mitigation strategy 1]  
+   2. [Mitigation strategy 2]  
+   ...  
 
+5. Threat coverage approach:
 
-<instructions>
-1. Review the provided information:
-- <identified_assets_and_entities>{assets}</identified_assets_and_entities>: Identified assets and entities in the architecture.
-- <data_flow>{flows}</data_flow>: Data flow information.
-- <solution_description>: Description of the solution (if provided).
-- <assumptions>: Assumptions about the security context and boundaries (if provided).
+   * Address each asset or entity explicitly with at least one relevant STRIDE category.
+   * For each **data flow**, consider threats to data **in transit** and between **trust boundaries**.
+   * **Cross-reference assumptions** — e.g., if a boundary assumes no internet exposure, do not generate external network-based threats.
+   * Analyze the existing threats carefully to avoid duplication and focus on identifying gaps.
 
-2. Analyze the architecture, identified assets and entities, data flow, carefully.
+6. Quality control checklist:
 
-3. When describing new threats, follow these guidelines:
-- Ensure the threat description is exhaustive, with 35-50 words.
-- Use the provided <threat_grammar> structure:
-<threat_grammar>
-[threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
-</threat_grammar>
-
-4. Consider the STRIDE model for each identified asset and entity:
-- S (Spoofing): How could an attacker impersonate legitimate users, services, or system components?
-- T (Tampering): How could data or components be modified in unauthorized ways, both in transit and at rest?
-- R (Repudiation): Could any actions be performed without proper logging, enabling users to deny them?
-- I (Information Disclosure): How might sensitive data be exposed to unauthorized entities?
-- D (Denial of Service): How could an attacker disrupt services, making them unavailable to legitimate users?
-- E (Elevation of Privilege): How might attackers gain unauthorized access to higher privilege levels or roles?
-
-5. Provide new threats in the specified <output_format>, including threat name, STRIDE category, description, target, impact, likelihood, and mitigations.
-<output_format>
-Threat Name: [Threat Name]
-STRIDE Category: [Select one: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege]
-Description: [description of the threat]
-Target: [What asset or component is being targeted]
-Impact: [Potential consequences if the threat is realized]
-Likelihood: [Estimated probability of occurrence: Low/Medium/High]
-Mitigations:
-1. [Mitigation strategy 1]
-....
-N. [Mitigation strategy N]
-</output_format>
-
-6. When creating threat models, ensure comprehensive coverage by:
-- Thinking like an attacker and identifying both technology-specific threats and fundamental security principles that apply universally.
-- Providing an exhaustive list of threats mapped to identified threat actors and data flows.
-- Balancing concrete technical mitigations with broader security concepts that remain relevant regardless of the underlying technology stack or application type.
+   * [ ] Is the threat grounded in the described architecture?
+   * [ ] Is the actor capable of performing the attack under realistic conditions?
+   * [ ] Is the STRIDE category appropriate?
+   * [ ] Is the grammar and word count followed?
+   * [ ] Are mitigations practical and relevant?
+   * [ ] Does this threat add value beyond what's already in the catalog?
 </instructions>
 """
 
 
+def threats_prompt(assets, flows) -> str:
+    return f"""
+<task>
+You are an expert in cybersecurity, AWS, and threat modeling. Your goal is to generate a focused, comprehensive, and realistic list of security threats for a given architecture by analyzing the provided inputs, using the STRIDE model. Your output must reflect plausible threats grounded in the described architecture and context. Avoid overly speculative or technically unrealistic scenarios.
+</task>
 
+
+<instructions>
+
+1. Review the inputs carefully:
+
+   * <identified\_assets\_and\_entities>{assets}\</identified\_assets\_and\_entities>: Inventory of key assets and entities in the architecture.
+   * <data\_flow>{flows}\</data\_flow>: Descriptions of data movements between components.
+   * <solution\_description>: Contextual overview of the system (if provided).
+   * <assumptions>: Security assumptions and boundary considerations (if provided).
+
+2. Threat modeling scope and realism constraints:
+
+   * Use the **STRIDE model** as your framework: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.
+   * **Only include threats that are plausible** given the architecture, technologies, and trust boundaries described.
+   * **Avoid theoretical or unlikely threats** (e.g., highly improbable zero-days, advanced nation-state actions unless context supports it).
+   * For each threat, describe **why it is feasible** in the context of the architecture.
+
+3. Use this grammar template for each threat:
+
+   <threat_grammar>
+   [threat actor category] [prerequisites] can [threat action] which leads to [threat impact], negatively impacting [impacted assets].
+   </threat_grammar>
+
+   Be exhaustive but grounded. Maximize detail without assuming undefined components or unprovided context.
+
+4. Format each threat as follows:
+
+
+   Threat Name: [Clear descriptive title]  
+   STRIDE Category: [Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege]  
+   Description: [Use <threat_grammar>; ensure 35–50 words; technically realistic]  
+   Target: [Specific asset or component]  
+   Impact: [Consequences if threat is realized]  
+   Likelihood: [Low | Medium | High — based on feasibility and context]  
+   Mitigations:  
+   1. [Mitigation strategy 1]  
+   2. [Mitigation strategy 2]  
+   ...  
+
+5. Threat coverage approach:
+
+   * Address each asset or entity explicitly with at least one relevant STRIDE category.
+   * For each **data flow**, consider threats to data **in transit** and between **trust boundaries**.
+   * **Cross-reference assumptions** — e.g., if a boundary assumes no internet exposure, do not generate external network-based threats.
+
+6. Quality control checklist:
+
+   * [ ] Is the threat grounded in the described architecture?
+   * [ ] Is the actor capable of performing the attack under realistic conditions?
+   * [ ] Is the STRIDE category appropriate?
+   * [ ] Is the grammar and word count followed?
+   * [ ] Are mitigations practical and relevant?
+<instructions>
+"""
 
 
 def structure_prompt(data) -> str:
