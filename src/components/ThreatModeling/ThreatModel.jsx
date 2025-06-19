@@ -24,6 +24,7 @@ import {
   updateTm,
   deleteTm,
   startThreatModeling,
+  restoreTm,
 } from "../../services/ThreatDesigner/stats";
 import { useSplitPanel } from "../../SplitPanelContext";
 import "./ThreatModeling.css";
@@ -337,6 +338,21 @@ export const ThreatModel = ({ user }) => {
     }
   };
 
+  const handleRestore = async () => {
+    setLoading(true);
+    try {
+      await restoreTm(id);
+      hideAlert();
+    }
+    catch (error) {
+      setLoading(false);
+      console.error("Error restoring threat modeling:", error);
+    }
+    finally {
+      setTrigger(Math.floor(Math.random() * 100) + 1);
+    }
+  }
+
   useEffect(() => {
     if (response) {
       checkChanges();
@@ -465,7 +481,7 @@ export const ThreatModel = ({ user }) => {
                     statusIconAriaLabel={"Error"}
                     type={"error"}
                     action={
-                      <Button onClick={() => navigate("/")}>
+                      <Button onClick={handleRestore}>
                         {alertMessages[alert.state].button}
                       </Button>
                     }

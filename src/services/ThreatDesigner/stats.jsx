@@ -53,6 +53,11 @@ async function updateTm(id, payload) {
   return instance.put(statsPath, payload);
 }
 
+async function restoreTm(id) {
+  const statsPath = `/restore/${id}`;
+  return instance.put(statsPath);
+}
+
 async function generateUrl(fileType) {
   const statsPath = "/upload";
   const postData = {
@@ -110,4 +115,5 @@ export {
   deleteTm,
   getThreatModelingAllResults,
   getThreatModelingTrail,
+  restoreTm
 };
