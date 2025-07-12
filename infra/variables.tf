@@ -21,6 +21,15 @@ variable "region" {
   default = "us-east-1"
 }
 
+variable "log_level" {
+  default = "INFO"
+}
+
+variable "traceback_enabled" {
+  type = bool
+  default = false
+}
+
 variable "api_gw_stage" {
   default = "dev"
 }
@@ -42,6 +51,7 @@ variable "reasoning_models" {
     "us.anthropic.claude-sonnet-4-20250514-v1:0"
   ]
 }
+
 
 variable "model_main" {
   type = object({
