@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Type
 
 from constants import ERROR_MODEL_INIT_FAILED
 from exceptions import ModelInvocationError
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_aws.chat_models.bedrock import ChatBedrockConverse
 from langchain_core.messages import AIMessage
 from langchain_core.messages.human import HumanMessage
 from langchain_core.runnables.config import RunnableConfig
@@ -44,7 +44,7 @@ class ModelService:
         self,
         response: AIMessage,
         tool_class: Type,
-        model_structured: ChatGoogleGenerativeAI,
+        model_structured: ChatBedrockConverse,
         reasoning: bool,
     ) -> Dict[str, Any]:
         """Process structured model response with error handling."""
