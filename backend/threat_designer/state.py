@@ -7,16 +7,16 @@ from typing import Annotated, List, Literal, Optional, TypedDict
 from constants import (MITIGATION_MAX_ITEMS, MITIGATION_MIN_ITEMS,
                        SUMMARY_MAX_WORDS_DEFAULT, THREAT_DESCRIPTION_MAX_WORDS,
                        THREAT_DESCRIPTION_MIN_WORDS, AssetType, StrideCategory)
-from langchain_aws import ChatBedrockConverse
+from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel, Field
 
 
 class ConfigSchema(TypedDict):
     """Configuration schema for the workflow."""
 
-    model_main: ChatBedrockConverse
-    model_struct: ChatBedrockConverse
-    model_summary: ChatBedrockConverse
+    model_main: ChatGoogleGenerativeAI
+    model_struct: ChatGoogleGenerativeAI
+    model_summary: ChatGoogleGenerativeAI
     start_time: datetime
     reasoning: bool
 

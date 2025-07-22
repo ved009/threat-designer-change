@@ -25,7 +25,7 @@ from constants import (AWS_SERVICE_DYNAMODB, AWS_SERVICE_S3, DB_FIELD_ASSETS,
                        ERROR_MISSING_ENV_VAR, ERROR_S3_OPERATION_FAILED,
                        FLUSH_MODE_REPLACE)
 from exceptions import DynamoDBError, S3Error, ThreatModelingError
-from langchain_aws import ChatBedrockConverse
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import BaseMessage
 from langchain_core.messages.human import HumanMessage
 from monitoring import operation_context, with_error_context
@@ -645,7 +645,7 @@ def parse_s3_image_to_base64(bucket_name: str, object_key: str) -> Optional[str]
 
 
 def _retry_with_structure(
-    model: ChatBedrockConverse, response: BaseMessage, struct: ChatBedrockConverse
+    model: ChatGoogleGenerativeAI, response: BaseMessage, struct: ChatGoogleGenerativeAI
 ) -> BaseMessage:
     """
     Retry AI model response with structured output.
@@ -685,7 +685,7 @@ def _retry_with_structure(
 
 
 def handle_asset_error(
-    model: ChatBedrockConverse, struct: ChatBedrockConverse, thinking: bool = True
+    model: ChatGoogleGenerativeAI, struct: ChatGoogleGenerativeAI, thinking: bool = True
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to handle asset processing errors with optional retry logic.
