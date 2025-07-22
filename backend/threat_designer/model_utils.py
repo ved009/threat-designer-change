@@ -2,7 +2,7 @@
 Threat Designer Model Module.
 
 This module provides model initialization and configuration functions for the Threat Designer application.
-It handles the creation of LangChain-compatible Gemini model clients with various configurations.
+It handles the creation of LangChain-compatible Bedrock model clients with various configurations.
 """
 
 import json
@@ -10,14 +10,16 @@ import os
 from dataclasses import dataclass
 from typing import Dict, Optional, TypedDict
 
-import google.generativeai as genai
-from constants import (DEFAULT_BUDGET,
-                       ENV_GOOGLE_API_KEY, ENV_MAIN_MODEL,
+import boto3
+from botocore.config import Config
+from constants import (AWS_SERVICE_BEDROCK_RUNTIME, DEFAULT_BUDGET,
+                       DEFAULT_REGION, DEFAULT_TIMEOUT, ENV_MAIN_MODEL,
                        ENV_MODEL_STRUCT, ENV_MODEL_SUMMARY,
-                       ENV_REASONING_MODELS,
+                       ENV_REASONING_MODELS, ENV_REGION,
                        MODEL_TEMPERATURE_DEFAULT, MODEL_TEMPERATURE_REASONING,
-                       TOKEN_BUDGETS)
-from langchain_google_genai import ChatGoogleGenerativeAI
+                       REASONING_BUDGET_FIELD, REASONING_THINKING_TYPE,
+                       STOP_SEQUENCES, TOKEN_BUDGETS)
+from langchain_aws.chat_models.bedrock import ChatBedrockConverse
 from monitoring import logger, operation_context, with_error_context
 
 
@@ -97,6 +99,39 @@ def _load_model_configs() -> ModelConfigurations:
         raise
 
 
+@with_error_context("create Bedrock client")
+def _create_bedrock_client(
+    region: Optional[str] = None, config: Optional[Config] = None
+) -> boto3.client:
+    """
+    Create Bedrock runtime client with configuration.
+
+    Args:
+        region: AWS region name. Defaults to environment variable or us-west-2.
+        config: Boto3 configuration. Defaults to Config with 1000s read timeout.
+
+    Returns:
+        boto3.client: Configured Bedrock runtime client.
+
+    Raises:
+        ThreatModelingError: If client creation fails.
+    """
+    region = region or os.environ.get(ENV_REGION, DEFAULT_REGION)
+    config = config or Config(read_timeout=DEFAULT_TIMEOUT)
+
+    logger.debug("Creating Bedrock client", region=region, timeout=DEFAULT_TIMEOUT)
+
+    try:
+        client = boto3.client(
+            service_name=AWS_SERVICE_BEDROCK_RUNTIME, region_name=region, config=config
+        )
+
+        logger.info("Bedrock client created successfully", region=region)
+        return client
+
+    except Exception as e:
+        logger.error("Failed to create Bedrock client", region=region, error=str(e))
+        raise
 
 
 def _get_token_budget(reasoning: int) -> int:
@@ -114,20 +149,27 @@ def _get_token_budget(reasoning: int) -> int:
     return budget
 
 
-def _build_standard_model_config(model_config: ModelConfig) -> dict:
+def _build_standard_model_config(
+    model_config: ModelConfig, client: boto3.client, region: str
+) -> dict:
     """
     Build standard model configuration dictionary.
 
     Args:
         model_config: Model configuration with id and max_tokens.
+        client: Bedrock runtime client.
+        region: AWS region name.
 
     Returns:
         dict: Standard model configuration.
     """
     config = {
-        "model": model_config["id"],
-        "max_output_tokens": model_config["max_tokens"],
+        "client": client,
+        "region_name": region,
+        "max_tokens": model_config["max_tokens"],
+        "model_id": model_config["id"],
         "temperature": MODEL_TEMPERATURE_DEFAULT,
+        "stop": STOP_SEQUENCES,
     }
 
     logger.debug(
@@ -143,6 +185,8 @@ def _build_main_model_config(
     model_config: ModelConfig,
     reasoning_models: list,
     reasoning: int,
+    client: boto3.client,
+    region: str,
 ) -> dict:
     """
     Build configuration dictionary for main model with optional reasoning.
@@ -151,17 +195,25 @@ def _build_main_model_config(
         model_config: Model configuration with id and max_tokens.
         reasoning_models: List of model IDs that support reasoning.
         reasoning: Reasoning level (0 disables reasoning).
+        client: Bedrock runtime client.
+        region: AWS region name.
 
     Returns:
         dict: Main model configuration with reasoning if applicable.
     """
-    config = _build_standard_model_config(model_config)
+    config = _build_standard_model_config(model_config, client, region)
 
     # Add reasoning configuration if enabled and supported
     reasoning_enabled = reasoning != 0 and model_config["id"] in reasoning_models
 
     if reasoning_enabled:
         budget = _get_token_budget(reasoning)
+        config["additional_model_request_fields"] = {
+            "thinking": {
+                "type": REASONING_THINKING_TYPE,
+                REASONING_BUDGET_FIELD: budget,
+            }
+        }
         config["temperature"] = MODEL_TEMPERATURE_REASONING
 
         logger.info(
@@ -184,27 +236,27 @@ def _build_main_model_config(
 
 def initialize_models(
     reasoning: int = 0,
-    api_key: Optional[str] = None,
+    bedrock_client: Optional[boto3.client] = None,
     job_id: Optional[str] = None,
-) -> Dict[str, ChatGoogleGenerativeAI]:
+) -> Dict[str, ChatBedrockConverse]:
     """
-    Initialize Gemini model clients with proper error handling.
+    Initialize Bedrock model clients with proper error handling.
 
-    This function creates multiple Gemini model clients with different configurations:
+    This function creates multiple Bedrock model clients with different configurations:
     - Main model: Primary model with optional reasoning capabilities
     - Struct model: Model optimized for structured outputs
     - Summary model: Model optimized for summarization tasks
 
     Args:
         reasoning: Reasoning level (0-3). 0 disables reasoning, 1-3 enables with different token budgets.
-        api_key: Optional Google API key for Gemini. Falls back to env var.
+        bedrock_client: Optional pre-configured Bedrock client for testing.
         job_id: Optional job ID for operation tracking.
 
     Returns:
-        Dict[str, ChatGoogleGenerativeAI]: Dictionary containing:
-            - 'main_model': Primary ChatGoogleGenerativeAI instance
-            - 'struct_model': ChatGoogleGenerativeAI instance for structured outputs
-            - 'summary_model': ChatGoogleGenerativeAI instance for summarization
+        Dict[str, ChatBedrockConverse]: Dictionary containing:
+            - 'main_model': Primary ChatBedrockConverse instance
+            - 'struct_model': ChatBedrockConverse instance for structured outputs
+            - 'summary_model': ChatBedrockConverse instance for summarization
 
     Raises:
         ThreatModelingError: If model initialization fails.
@@ -213,34 +265,40 @@ def initialize_models(
 
     with operation_context("initialize_models", job_id):
         try:
-            logger.info("Starting model initialization", reasoning_level=reasoning)
+            logger.info(
+                "Starting model initialization",
+                reasoning_level=reasoning,
+                using_provided_client=bedrock_client is not None,
+            )
 
             # Load and validate configurations
             configs = _load_model_configs()
 
-            api_key = api_key or os.environ.get(ENV_GOOGLE_API_KEY)
-            if not api_key:
-                raise ThreatModelingError("GOOGLE_API_KEY not provided")
-
-            genai.configure(api_key=api_key)
+            # Create or use provided Bedrock client
+            client = bedrock_client or _create_bedrock_client()
+            region = os.environ.get(ENV_REGION, DEFAULT_REGION)
 
             # Build model configurations
             logger.debug("Building model configurations")
 
             main_config = _build_main_model_config(
-                configs.main_model, configs.reasoning_models, reasoning
+                configs.main_model, configs.reasoning_models, reasoning, client, region
             )
 
-            struct_config = _build_standard_model_config(configs.struct_model)
-            summary_config = _build_standard_model_config(configs.summary_model)
+            struct_config = _build_standard_model_config(
+                configs.struct_model, client, region
+            )
+            summary_config = _build_standard_model_config(
+                configs.summary_model, client, region
+            )
 
             # Initialize models
-            logger.debug("Initializing ChatGoogleGenerativeAI instances")
+            logger.debug("Initializing ChatBedrockConverse instances")
 
             models = {
-                "main_model": ChatGoogleGenerativeAI(**main_config),
-                "struct_model": ChatGoogleGenerativeAI(**struct_config),
-                "summary_model": ChatGoogleGenerativeAI(**summary_config),
+                "main_model": ChatBedrockConverse(**main_config),
+                "struct_model": ChatBedrockConverse(**struct_config),
+                "summary_model": ChatBedrockConverse(**summary_config),
             }
 
             logger.info(
